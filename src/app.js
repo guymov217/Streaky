@@ -1,4 +1,5 @@
-import { dateKey, activeStreak, completeDay, weekDays, weekday, scheduledOn, restDayChecker } from './streak.js';
+import { dateKey, activeStreak, completeDay, weekDays, weekday, scheduledOn, activeWeekdays, updateScheduleLog, restCheckerFromLog } from './streak.js';
+import { loadFrom, saveTo, storageWorks, STORAGE_KEY } from './storage.js';
 import { pushAvailability, enablePush, disablePush, scheduleSync } from './notifications.js';
 import { initInstall } from './install.js';
 import { mascotSVG } from './mascot.js';
@@ -6,7 +7,6 @@ import { TASK_ICONS, DEFAULT_ICON, iconHTML, suggestIcon } from './icons.js';
 import { isNative, nativeHaptic, nativeNotificationsAllowed, enableNativeNotifications, cancelNativeReminders, scheduleNativeReminders, onNativeBack } from './native.js';
 import { planLocalReminders } from './local-reminders.js';
 
-const STORAGE_KEY = 'streaky-v1';
 const XP_PER_TASK = 10;
 const PERFECT_DAY_BONUS = 20;
 const DAY_NAMES = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -21,15 +21,18 @@ const STYLE_SAMPLES = {
 const $ = (id) => document.getElementById(id);
 
 // ---------- State ----------
+// Accessing localStorage itself can throw (e.g. storage blocked), so it is looked up defensively.
+const storage = (() => { try { return window.localStorage; } catch { return null; } })();
+let storageOk = storageWorks(storage);
+
 function loadState() {
-  const fallback = { tasks: [], done: { date: dateKey(), ids: [] }, streak: 0, best: 0, lastDone: null, history: [], xp: 0, sound: true };
-  let loaded = fallback;
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved) loaded = { ...fallback, ...saved };
-  } catch { /* corrupt or unavailable storage */ }
+  const fallback = { tasks: [], done: { date: dateKey(), ids: [] }, streak: 0, best: 0, lastDone: null, history: [], xp: 0, sound: true, schedule: [] };
+  const { state: loaded, restored } = loadFrom(storage, fallback);
   loaded.notify = { ...DEFAULT_NOTIFY, ...loaded.notify };
   loaded.deviceId ??= Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+  // First run with schedule history: the current schedule applies to all past days.
+  if (!loaded.schedule.length) loaded.schedule = [{ from: '0000-00-00', active: activeWeekdays(loaded.tasks) }];
+  if (restored) setTimeout(() => toast('♻️ הנתונים שלך שוחזרו מהגיבוי האחרון'), 600);
   return loaded;
 }
 
@@ -42,8 +45,18 @@ let laterOpen = false; // "other days" section expanded
 let iconPicked = false; // once the user taps an icon, stop auto-suggesting from the title
 
 function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
+  if (!saveTo(storage, state) && storageOk) {
+    storageOk = false;
+    $('storageWarn').hidden = false;
+  }
   syncReminders();
+}
+
+// After adding, editing or deleting a task: remember the schedule from today on, save, redraw.
+function tasksChanged() {
+  state.schedule = updateScheduleLog(state.schedule, state.tasks, dateKey());
+  save();
+  render({ popBubble: true });
 }
 
 // Installed Android app: schedule reminders on the phone. Browser/iPhone: report progress to the push server.
@@ -76,7 +89,7 @@ function progressStatus() {
 
 // ---------- Schedule ----------
 const tasksOn = (key) => state.tasks.filter((t) => scheduledOn(t.days, key));
-const isRestDay = (key) => restDayChecker(state.tasks)(key);
+const isRestDay = (key) => restCheckerFromLog(state.schedule)(key);
 const repeatsDaily = (task) => !Array.isArray(task.days) || task.days.length === 0;
 
 function daysLabel(days) {
@@ -303,12 +316,22 @@ function floatXP(x, y, text) {
 }
 
 let toastTimer;
-function toast(text) {
+// action: optional { label, run } shown as a button (e.g. undo).
+function toast(text, action) {
   const el = $('toast');
   el.textContent = text;
+  if (action) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.addEventListener('click', () => { el.classList.remove('show'); action.run(); }, { once: true });
+    el.append(btn);
+  }
+  el.classList.toggle('has-action', Boolean(action));
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => el.classList.remove('show'), action ? 6000 : 2200);
 }
 
 // ---------- Actions ----------
@@ -335,7 +358,7 @@ function toggleTask(id, li) {
 
   const todays = tasksOn(today);
   const allDone = todays.length > 0 && todays.every((t) => state.done.ids.includes(t.id));
-  const firstPerfect = allDone && state.lastDone !== today;
+  const firstPerfect = allDone && (!state.lastDone || state.lastDone < today);
   if (firstPerfect) {
     state = completeDay(state, today, isRestDay);
     state.xp += PERFECT_DAY_BONUS;
@@ -356,10 +379,9 @@ function addTask(title, icon, days) {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const task = { id, title, icon, days };
   state.tasks.push(task);
-  save();
+  tasksChanged();
   play('add');
   buzz(15);
-  render({ popBubble: true });
   const today = dateKey();
   if (!scheduledOn(days, today)) toast(`🔁 המטלה נוספה לימים ${daysLabel(days)}`);
   else if (state.lastDone === today) toast('הרצף של היום כבר נשמר ✔️ המטלה החדשה תיספר מחר');
@@ -369,18 +391,28 @@ function updateTask(id, changes) {
   const task = state.tasks.find((t) => t.id === id);
   if (!task) return;
   Object.assign(task, changes);
-  save();
-  render({ popBubble: true });
+  tasksChanged();
   toast(repeatsDaily(task) ? '✔️ נשמר · חוזרת כל יום' : `✔️ נשמר · חוזרת בימים ${daysLabel(task.days)}`);
 }
 
 function deleteTask(id, li) {
   li.classList.add('removing');
   setTimeout(() => {
-    state.tasks = state.tasks.filter((t) => t.id !== id);
+    const index = state.tasks.findIndex((t) => t.id === id);
+    if (index < 0) return;
+    const [task] = state.tasks.splice(index, 1);
+    const wasDone = state.done.ids.includes(id);
     state.done.ids = state.done.ids.filter((x) => x !== id);
-    save();
-    render();
+    tasksChanged();
+    toast(`🗑️ "${task.title}" נמחקה`, {
+      label: 'ביטול',
+      run: () => {
+        if (state.tasks.some((t) => t.id === id)) return;
+        state.tasks.splice(Math.min(index, state.tasks.length), 0, task);
+        if (wasDone && state.done.date === dateKey()) state.done.ids.push(id);
+        tasksChanged();
+      },
+    });
   }, 280);
 }
 
@@ -699,6 +731,16 @@ $('streakStat').addEventListener('click', () => {
   toast(streak ? `🔥 רצף של ${streak} ימים · השיא שלך: ${state.best}` : 'השלם את כל המטלות היום כדי להדליק רצף 🔥');
 });
 
+// Another tab or window of the app changed the data: take it instead of overwriting it later.
+window.addEventListener('storage', (e) => {
+  if (e.key !== STORAGE_KEY || !e.newValue) return;
+  state = loadState();
+  render();
+});
+
+// Ask the browser to keep the data even under storage pressure or after a while without visits.
+navigator.storage?.persist?.().catch(() => {});
+
 // Re-check the date when the app comes back to the foreground (e.g. the next morning).
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
@@ -719,6 +761,7 @@ if (isNative()) {
 } else if (state.notify.enabled && 'Notification' in window && Notification.permission !== 'granted') {
   state.notify.enabled = false;
 }
+$('storageWarn').hidden = storageOk;
 save();
 render();
 $('installMascot').innerHTML = mascotSVG('happy');

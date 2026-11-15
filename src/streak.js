@@ -28,12 +28,46 @@ export function restDayChecker(tasks) {
   return (key) => tasks.length > 0 && !tasks.some((t) => scheduledOn(t.days, key));
 }
 
+// Weekdays (0–6) that have at least one task.
+export function activeWeekdays(tasks) {
+  const days = new Set();
+  for (const t of tasks) {
+    if (!Array.isArray(t.days) || t.days.length === 0) return [0, 1, 2, 3, 4, 5, 6];
+    t.days.forEach((d) => days.add(d));
+  }
+  return [...days].sort();
+}
+
+// Schedule history: [{ from: dateKey, active: weekdays[] }] sorted by `from`. Rest days in the past
+// are judged by the schedule that applied then, so editing tasks never rewrites (and breaks) old streaks.
+function activeAt(log, key) {
+  let active = log[0]?.active ?? null;
+  for (const entry of log) if (entry.from <= key) active = entry.active;
+  return active;
+}
+
+export function updateScheduleLog(log, tasks, today) {
+  const active = activeWeekdays(tasks);
+  const before = log.filter((e) => e.from < today);
+  if (before.length && before[before.length - 1].active.join() === active.join()) return before;
+  return [...before, { from: today, active }].slice(-60);
+}
+
+export function restCheckerFromLog(log) {
+  return (key) => {
+    const active = activeAt(log, key);
+    return Array.isArray(active) && active.length > 0 && !active.includes(weekday(key));
+  };
+}
+
 const MAX_REST_RUN = 7;
 
 // The streak the user currently holds: still alive if the last perfect day was today,
 // yesterday, or before a run of rest days (days with nothing scheduled don't break it).
 export function activeStreak(state, today, isRest = () => false) {
   if (state.lastDone === today) return state.streak;
+  // The device clock went back (e.g. flying west): that never counts as a missed day.
+  if (state.lastDone && state.lastDone > today) return state.streak;
   let key = addDays(today, -1);
   for (let i = 0; i <= MAX_REST_RUN; i++) {
     if (state.lastDone === key) return state.streak;
@@ -45,7 +79,7 @@ export function activeStreak(state, today, isRest = () => false) {
 
 // Record that every task was completed today. Idempotent within a day.
 export function completeDay(state, today, isRest = () => false) {
-  if (state.lastDone === today) return state;
+  if (state.lastDone && state.lastDone >= today) return state;
   const streak = activeStreak(state, today, isRest) > 0 ? state.streak + 1 : 1;
   const history = state.history.includes(today) ? state.history : [...state.history, today];
   return {

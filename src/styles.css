@@ -628,6 +628,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .install-btn { margin-inline-start: auto; }
 .install-btn:not([hidden]) + .bell-btn { margin-inline-start: 0; }
 
+/* ---------- Storage warning ---------- */
+.warn-banner {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid var(--red);
+  background: rgba(255, 75, 75, .1);
+  color: var(--red);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed;
@@ -646,6 +659,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transition: opacity .25s, transform .25s;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.has-action { display: flex; align-items: center; gap: 14px; }
+.toast.show.has-action { pointer-events: auto; }
+.toast-action { border: none; background: none; padding: 4px 2px; color: var(--gold); font-weight: 800; font-size: 15px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

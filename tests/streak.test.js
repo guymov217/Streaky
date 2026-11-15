@@ -85,3 +85,31 @@ test('weekDays marks rest days', () => {
   const days = weekDays([], '2026-11-15', isRest);
   assert.deepEqual(days.map((d) => d.rest), [false, false, false, false, false, true, true]);
 });
+
+// ---------- nothing resets without a reason ----------
+import { updateScheduleLog, restCheckerFromLog, activeWeekdays } from '../src/streak.js';
+
+test('moving the device clock back does not reset the streak', () => {
+  const s = { ...base, streak: 6, best: 6, lastDone: '2026-11-16' };
+  assert.equal(activeStreak(s, '2026-11-15'), 6);
+  assert.equal(completeDay(s, '2026-11-15'), s);
+});
+
+test('adding a daily task later does not break a streak kept over a rest weekend', () => {
+  let log = [{ from: '0000-00-00', active: activeWeekdays([{ days: SUN_TO_THU }]) }];
+  log = updateScheduleLog(log, [{ days: SUN_TO_THU }, { days: null }], '2026-11-21'); // Saturday: add a daily task
+  const rest = restCheckerFromLog(log);
+  assert.equal(rest('2026-11-20'), true); // Friday was still a rest day back then
+  assert.equal(rest('2026-11-21'), false); // from today on, every day has a task
+  const s = { ...base, streak: 3, best: 3, lastDone: '2026-11-19' }; // Thursday
+  assert.equal(activeStreak(s, '2026-11-21', rest), 3);
+});
+
+test('the schedule log only grows when the set of active weekdays changes', () => {
+  const start = [{ from: '0000-00-00', active: [0, 1, 2, 3, 4] }];
+  assert.deepEqual(updateScheduleLog(start, [{ days: SUN_TO_THU }], '2026-11-21'), start);
+  const changed = updateScheduleLog(start, [{ days: null }], '2026-11-21');
+  assert.equal(changed.length, 2);
+  const changedBack = updateScheduleLog(changed, [{ days: SUN_TO_THU }], '2026-11-21');
+  assert.deepEqual(changedBack, start);
+});
