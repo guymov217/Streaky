@@ -73,3 +73,66 @@ test('sanitizeRecord rejects non push-service endpoints and bad input', () => {
   assert.equal(sanitizeRecord({ ...valid, reminders: ['25:00'] }), null);
   assert.equal(sanitizeRecord({ ...valid, id: 'short' }), null);
 });
+
+// ---------- dark humour ----------
+import { DARK_MESSAGES } from '../netlify/lib/reminders.js';
+
+const seq = (i, n) => () => (i + 0.5) / n; // deterministic "random" that walks every option
+
+function allDark(st, time, extra = {}) {
+  const n = DARK_MESSAGES.length;
+  return Array.from({ length: n }, (_, i) => buildMessage(st, '2026-11-15', time, { style: 'dark', random: seq(i, n), ...extra }));
+}
+
+test('dark messages fill every placeholder', () => {
+  const st = status({ done: 1, tasks: [{ title: 'ריצה', done: false }, { title: 'מים', done: true }] });
+  for (const time of ['08:00', '14:00', '21:00']) {
+    for (const m of allDark(st, time)) {
+      assert.doesNotMatch(m.title + m.body, /[{}]/);
+      assert.match(m.title + m.body, /2 מטלות|ריצה|4/);
+    }
+  }
+});
+
+test('task-specific jokes only use unfinished tasks', () => {
+  const st = status({ done: 1, tasks: [{ title: 'ריצה', done: false }, { title: 'מים', done: true }] });
+  const texts = allDark(st, '14:00').map((m) => m.title + m.body).join('\n');
+  assert.match(texts, /ריצה/);
+  assert.doesNotMatch(texts, /מים"/);
+});
+
+test('without task titles, no task-specific joke is chosen', () => {
+  for (const m of allDark(status({ done: 0 }), '14:00')) assert.doesNotMatch(m.title, /"/);
+});
+
+test('streak jokes appear only while a streak is alive', () => {
+  const texts = allDark(status({ lastDone: '2026-11-01' }), '14:00').map((m) => m.title).join('\n');
+  assert.doesNotMatch(texts, /רצף/);
+});
+
+test('morning and late jokes stay in their time slots', () => {
+  const morning = DARK_MESSAGES.filter((m) => m.when === 'morning').map((m) => m.title);
+  const late = DARK_MESSAGES.filter((m) => m.when === 'late').map((m) => m.title);
+  const at = (t) => allDark(status({ done: 1 }), t).map((m) => m.key);
+  assert.ok(at('21:00').every((k) => !morning.includes(k)));
+  assert.ok(at('08:00').every((k) => !late.includes(k)));
+  assert.ok(at('21:00').some((k) => late.includes(k)));
+});
+
+test('the previous joke is not repeated', () => {
+  const st = status({ done: 1 });
+  const first = buildMessage(st, '2026-11-15', '14:00', { style: 'dark', random: () => 0 });
+  const next = buildMessage(st, '2026-11-15', '14:00', { style: 'dark', random: () => 0, avoid: first.key });
+  assert.notEqual(next.key, first.key);
+});
+
+test('no dark message when the day is done', () => {
+  assert.equal(buildMessage(status({ done: 3, lastDone: '2026-11-15' }), '2026-11-15', '21:00', { style: 'dark' }), null);
+});
+
+test('sanitizeRecord keeps style and trims task titles', () => {
+  const r = sanitizeRecord({ ...valid, style: 'dark', status: { ...valid.status, tasks: [{ title: ` ${'x'.repeat(80)} `, done: 1 }, { title: '' }, 'bad'] } });
+  assert.equal(r.style, 'dark');
+  assert.deepEqual(r.status.tasks, [{ title: 'x'.repeat(60), done: false }]);
+  assert.equal(sanitizeRecord({ ...valid, style: 'evil' }).style, 'normal');
+});

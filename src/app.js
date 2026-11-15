@@ -10,7 +10,11 @@ const EMOJIS = ['✅', '💧', '🏃', '📚', '🧘', '🍎', '💪', '🛏️'
 const DAY_NAMES = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const MAX_TIMES = 4;
 const ANGRY_HOUR = 20; // from this hour the dog gets angry if today's tasks are not done
-const DEFAULT_NOTIFY = { enabled: false, times: ['09:00', '20:00'], nudgeDismissed: false };
+const DEFAULT_NOTIFY = { enabled: false, times: ['09:00', '20:00'], nudgeDismissed: false, style: 'dark' };
+const STYLE_SAMPLES = {
+  dark: '🩺 לא תלמד/י, מטופלים ימותו – נשארו עוד 2 מטלות. אין לחץ, זה רק חיי אדם.',
+  normal: '💪 כמעט שם! השלמת 1 מתוך 3. נשארו 2 מטלות ליום מושלם',
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,6 +49,7 @@ function progressStatus() {
     total: state.tasks.length,
     streak: state.streak,
     lastDone: state.lastDone,
+    tasks: state.tasks.map((t) => ({ title: t.title, done: ids.includes(t.id) })),
   };
 }
 
@@ -418,6 +423,11 @@ function renderRemind() {
       <button type="button" class="time-del" data-i="${i}" aria-label="הסר שעה" ${state.notify.times.length === 1 ? 'disabled' : ''}>✕</button>
     </div>`).join('');
   $('addTime').hidden = state.notify.times.length >= MAX_TIMES;
+
+  for (const btn of document.querySelectorAll('.style-opt')) {
+    btn.classList.toggle('selected', btn.dataset.style === state.notify.style);
+  }
+  $('styleSample').textContent = STYLE_SAMPLES[state.notify.style];
 }
 
 async function togglePush() {
@@ -479,6 +489,13 @@ $('nudgeClose').addEventListener('click', () => { state.notify.nudgeDismissed = 
 $('closeRemind').addEventListener('click', closeRemind);
 $('remindBackdrop').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeRemind(); });
 $('pushToggle').addEventListener('click', togglePush);
+$('styleOpts').addEventListener('click', (e) => {
+  const btn = e.target.closest('.style-opt');
+  if (!btn) return;
+  state.notify.style = btn.dataset.style;
+  save();
+  renderRemind();
+});
 $('addTime').addEventListener('click', () => {
   state.notify.times = [...state.notify.times, '13:00'];
   save();

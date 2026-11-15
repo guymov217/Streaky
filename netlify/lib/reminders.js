@@ -40,15 +40,62 @@ export function todayProgress(status, date) {
   return { total, done, perfect, streak: streakAlive ? status.streak : 0 };
 }
 
-// Returns a {title, body} notification, or null when there is nothing to remind about.
-export function buildMessage(status, date, time) {
+// Dark-humour reminders in the chihuahua's voice. Placeholders: {left} ("3 מטלות" / "מטלה אחת"),
+// {streak}, {task} (an unfinished task's title). `when`: any | morning (< 12:00) | late (>= 20:00).
+export const DARK_MESSAGES = [
+  { title: '🩺 לא תלמד/י, מטופלים ימותו', body: 'נשארו עוד {left}. אין לחץ, זה רק חיי אדם.' },
+  { title: '⚰️ הקברן כבר לקח לך מידות', body: 'עוד {left} ועדיין לא התחלת. הוא אמר שאין מה למהר.' },
+  { title: '🐶 הצ׳יוואוה כתב צוואה', body: 'הכל עובר לחתול של השכנים. אלא אם תסיים/י עוד {left}.' },
+  { title: '🪦 כאן נקברו התוכניות שלך להיום', body: 'עוד {left} שלא בוצעו. נוחו על משכבכן בשלום.' },
+  { title: '👵 סבתא שלך מאוכזבת', body: 'וזה אפילו לא הדבר הכי גרוע שקרה לה השנה. עוד {left}.' },
+  { title: '🛋️ הפסיכולוג שלך העלה מחיר', body: 'הוא אמר שזה בגלל המקרה שלך. עוד {left} פתוחות.' },
+  { title: '🧟 מה ההבדל בינך לבין זומבי?', body: 'זומבי לפחות יוצא מהבית. עוד {left} מחכות.' },
+  { title: '📉 המניה שלך בירידה', body: 'המשקיעים כבר מוכרים. עוד {left} כדי להציל את החברה.' },
+  { title: '🦴 אפילו העצם שלי יותר פרודוקטיבית', body: 'והיא קבורה בגינה. עוד {left}.' },
+  { title: '📌 "{task}" שאלה עלייך', body: 'אמרתי לה שאת/ה עסוק/ה. היא לא האמינה. גם אני לא.' },
+  { title: '💔 "{task}" חושדת שאת/ה כבר לא אוהב/ת אותה', body: 'עוד יום כזה והיא חוזרת לגור אצל אמא שלה.' },
+  { title: '🕵️ "{task}" הגישה תלונה במשטרה', body: 'סעיף: הזנחה בנסיבות מחמירות. עוד {left} לסגור את התיק.' },
+  { title: '☀️ בוקר טוב, אכזבה קטנה', body: 'סתם. אבל עוד {left} מחכות, ואנחנו עוקבים.', when: 'morning' },
+  { title: '☕ הקפה כבר התקרר', body: 'כמו החלומות שלך. עוד {left} להיום.', when: 'morning' },
+  { title: '🔥 הרצף של {streak} ימים בטיפול נמרץ', body: 'הרופאים אומרים שהלילה קריטי. עוד {left} כדי לנתק אותו מהמכונות.', streak: true },
+  { title: '🕯️ הדלקנו נר לזכר הרצף', body: '{streak} ימים. הוא היה צעיר מדי. עוד אפשר להחיות אותו: עוד {left}.', streak: true },
+  { title: '😤 הצ׳יוואוה לא אכל כל היום', body: 'הוא אומר שזה בגללך. עוד {left} לפני חצות.', when: 'late' },
+  { title: '🌙 חצות מתקרבת', body: 'לך יש עוד {left}. לצ׳יוואוה יש סבלנות של 3 שניות. 2... 1...', when: 'late' },
+  { title: '👻 עוד מעט חצות', body: 'ואז המטלות שלא עשית יבואו לרדוף אותך בחלומות. עוד {left}.', when: 'late' },
+];
+
+function pickDark(p, time, pending, random, avoid) {
+  const minutes = toMinutes(time);
+  const slot = minutes < 12 * 60 ? 'morning' : minutes >= 20 * 60 ? 'late' : 'day';
+  const eligible = DARK_MESSAGES.filter((m) => (!m.when || m.when === slot)
+    && (!m.streak || p.streak > 0)
+    && (!`${m.title}${m.body}`.includes('{task}') || pending.length > 0));
+  const pool = eligible.length > 1 ? eligible.filter((m) => m.title !== avoid) : eligible;
+  return { message: pool[Math.floor(random() * pool.length)], pendingPick: pending[Math.floor(random() * pending.length)] };
+}
+
+function fill(template, values) {
+  return template.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '');
+}
+
+// Returns a {title, body, key} notification, or null when there is nothing to remind about.
+// `key` identifies the template so the next reminder can avoid repeating it.
+export function buildMessage(status, date, time, { style = 'normal', random = Math.random, avoid } = {}) {
   const p = todayProgress(status, date);
   if (p.total === 0 || p.perfect || p.done >= p.total) return null;
   const left = p.total - p.done;
   const leftText = left === 1 ? 'מטלה אחת' : `${left} מטלות`;
+
+  if (style === 'dark') {
+    const tasks = Array.isArray(status.tasks) ? status.tasks : [];
+    const pending = (status.date === date ? tasks.filter((t) => !t.done) : tasks).map((t) => t.title);
+    const { message, pendingPick } = pickDark(p, time, pending, random, avoid);
+    const values = { left: leftText, streak: String(p.streak), task: pendingPick };
+    return { title: fill(message.title, values), body: fill(message.body, values), key: message.title };
+  }
+
   const evening = toMinutes(time) >= 17 * 60;
   const late = toMinutes(time) >= 20 * 60;
-
   if (late) {
     const risk = p.streak > 0 ? ` הרצף של ${p.streak} ימים בסכנה!` : '';
     return { title: '😤 רררר... הצ׳יוואוה עצבני!', body: `היום עומד להיגמר ועוד ${leftText} לא בוצעו.${risk}` };
@@ -93,6 +140,11 @@ export function sanitizeRecord(body) {
       total: int(s.total),
       streak: int(s.streak),
       lastDone: dateRe.test(s.lastDone ?? '') ? s.lastDone : null,
+      tasks: (Array.isArray(s.tasks) ? s.tasks : [])
+        .filter((t) => t && typeof t.title === 'string' && t.title.trim())
+        .slice(0, 30)
+        .map((t) => ({ title: t.title.trim().slice(0, 60), done: t.done === true })),
     },
+    style: body.style === 'dark' ? 'dark' : 'normal',
   };
 }

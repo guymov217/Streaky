@@ -19,12 +19,13 @@ export default async () => {
 
     // Several reminders due at once (e.g. after downtime): send only the latest.
     const { time, date } = due[due.length - 1];
-    const message = buildMessage(record.status, date, time);
+    const message = buildMessage(record.status, date, time, { style: record.style, avoid: record.lastKey });
+    if (message?.key) record.lastKey = message.key;
     for (const d of due) record.lastSent = { ...record.lastSent, [d.time]: d.date };
 
     if (message) {
       try {
-        await webpush.sendNotification(record.subscription, JSON.stringify(message), {
+        await webpush.sendNotification(record.subscription, JSON.stringify({ title: message.title, body: message.body }), {
           vapidDetails: { subject, publicKey: keys.publicKey, privateKey: keys.privateKey },
           TTL: 3600,
         });

@@ -37,6 +37,7 @@ function payload(state, subscription, status) {
     subscription: subscription.toJSON(),
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
     reminders: state.notify.times,
+    style: state.notify.style,
     status,
   };
 }

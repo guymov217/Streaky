@@ -20,7 +20,7 @@ export default async (req) => {
   const record = sanitizeRecord(body);
   if (!record) return new Response('Invalid record', { status: 400 });
   const previous = await store.get(record.id, { type: 'json' });
-  await store.setJSON(record.id, { ...record, lastSent: previous?.lastSent ?? {} });
+  await store.setJSON(record.id, { ...record, lastSent: previous?.lastSent ?? {}, lastKey: previous?.lastKey });
   return Response.json({ ok: true });
 };
 
