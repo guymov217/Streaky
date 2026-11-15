@@ -560,6 +560,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .install-tip b { color: var(--ink); }
 .install-tip .btn { display: flex; margin-top: 10px; width: 100%; }
 .install-note { color: var(--muted); font-weight: 600; margin: 0; line-height: 1.5; }
+.escape { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.escape a.btn { text-decoration: none; }
+.install-note.small { font-size: 13px; font-weight: 500; }
 .install-done { font-size: 18px; line-height: 1.7; padding: 18px; border-radius: 16px; background: var(--green-light); border: 2px solid var(--green); color: var(--green-dark); width: 100%; }
 .qr { padding: 12px; background: #fff; border-radius: 16px; border: 2px solid var(--line); }
 .qr svg { display: block; width: 180px; height: 180px; }

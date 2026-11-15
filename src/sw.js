@@ -1,4 +1,4 @@
-const CACHE = 'streaky-v6';
+const CACHE = 'streaky-v7';
 const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'streak.js', 'notifications.js', 'install.js', 'mascot.js', 'vendor/qrcode.js', 'apple-touch-icon.png', 'icon-maskable-512.png', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {

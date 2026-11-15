@@ -9,6 +9,17 @@ let deferredPrompt = null;
 let installed = false;
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
+
+// Built-in browsers of social/chat apps, where "Add to Home Screen" / install is unavailable.
+const IN_APP_RE = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|WhatsApp|Line\/|Twitter|TikTok|musical_ly|BytedanceWebview|Snapchat|LinkedInApp|Pinterest|Telegram|; wv\)/i;
+const isInAppBrowser = () => IN_APP_RE.test(navigator.userAgent);
+
+// One-tap links that leave the in-app browser for Safari (iOS 17+) or Chrome (Android).
+const safariLink = () => `x-safari-${appUrl()}`;
+function chromeLink() {
+  const url = new URL(appUrl());
+  return `intent://${url.host}${url.pathname}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url.href)};end`;
+}
 const appUrl = () => new URL('./', location.href).href;
 
 function platform() {
@@ -32,6 +43,16 @@ function copyBlock(browser) {
   </div>`;
 }
 
+// Shown inside WhatsApp/Instagram/Facebook etc.: one button to jump to the real browser.
+function escapeBlock(browser, href) {
+  return `<div class="escape">
+    <p class="install-note">כדי להתקין, צריך לפתוח את הקישור ב‑<b>${browser}</b>:</p>
+    <a class="btn btn-green btn-big" href="${href}">🧭 פתח ב‑${browser}</a>
+    <p class="install-note small">לא נפתח? לחץ על <b>⋯</b> או <b>⋮</b> בפינה ובחר <b>"פתח ב‑${browser}"</b> / <b>"פתח בדפדפן"</b>.</p>
+    <button type="button" class="btn btn-white btn-small copy-link">📋 או העתק את הקישור</button>
+  </div>`;
+}
+
 function renderBody() {
   const body = $('installBody');
   const p = platform();
@@ -42,11 +63,19 @@ function renderBody() {
     return;
   }
 
+  if (p === 'ios' && isInAppBrowser()) {
+    body.innerHTML = escapeBlock('Safari', safariLink());
+    return;
+  }
+  if (p === 'android' && isInAppBrowser()) {
+    body.innerHTML = escapeBlock('Chrome', chromeLink());
+    return;
+  }
+
   if (p === 'ios') {
     body.innerHTML = `<ol class="steps">
-      ${step(1, `לחץ על כפתור <b>השיתוף</b> <span class="chip">${shareIcon}</span><small>בתחתית Safari. בגרסאות חדשות של iOS: קודם על <b>⋯</b> ואז על "שיתוף"</small>`)}
-      ${step(2, `גלול למטה ובחר <span class="chip chip-row">${addIcon} הוסף למסך הבית</span>`)}
-      ${step(3, `לחץ <b>"הוסף"</b> ופתח את Streaky מהאייקון 🔥`)}
+      ${step(1, `לחץ על כפתור <b>השיתוף</b> <span class="chip">${shareIcon}</span><small>בתחתית המסך. בגרסאות חדשות של iOS: קודם על <b>⋯</b> ואז על "שיתוף"</small>`)}
+      ${step(2, `בחר <span class="chip chip-row">${addIcon} הוסף למסך הבית</span> ואז <b>"הוסף"</b> 🎉<small>אם לא רואים, גלול קצת למטה ברשימה</small>`)}
     </ol>${copyBlock('Safari')}`;
     $('installArrow').hidden = /ipad/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1 && !/iphone/i.test(navigator.userAgent);
     return;
@@ -58,8 +87,7 @@ function renderBody() {
          <p class="install-note">ההתקנה לוקחת שנייה, והאייקון יופיע במסך הבית שלך</p>`
       : `<ol class="steps">
           ${step(1, `לחץ על <span class="chip chip-dots">⋮</span> בפינה העליונה של Chrome`)}
-          ${step(2, `בחר <b>"התקן אפליקציה"</b> או <b>"הוסף למסך הבית"</b>`)}
-          ${step(3, `לחץ <b>"התקן"</b> ופתח את Streaky מהאייקון 🔥`)}
+          ${step(2, `בחר <b>"התקן אפליקציה"</b> או <b>"הוסף למסך הבית"</b>, ואז <b>"התקן"</b> 🎉`)}
         </ol>${copyBlock('Chrome')}`;
     return;
   }
