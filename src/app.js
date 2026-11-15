@@ -1,5 +1,6 @@
 import { dateKey, activeStreak, completeDay, weekDays } from './streak.js';
 import { pushAvailability, enablePush, disablePush, scheduleSync } from './notifications.js';
+import { initInstall } from './install.js';
 
 const STORAGE_KEY = 'streaky-v1';
 const XP_PER_TASK = 10;
@@ -527,6 +528,8 @@ if (state.notify.enabled && 'Notification' in window && Notification.permission 
 }
 save();
 render();
+$('installMascot').innerHTML = mascotSVG('happy');
+initInstall();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

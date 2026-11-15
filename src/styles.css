@@ -480,6 +480,68 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .reward-blue .reward-label { background: var(--blue); }
 .reward-blue .reward-val { color: var(--blue); }
 
+/* ---------- Install guide ---------- */
+.install {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  overflow-y: auto;
+  background: var(--bg);
+  animation: fadeIn .3s;
+}
+.install-inner {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: calc(28px + env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.install-mascot { width: 96px; height: 104px; animation: float 3s ease-in-out infinite; }
+.install-mascot svg { width: 100%; height: 100%; overflow: visible; }
+.install-title { font-size: 28px; font-weight: 900; margin: 12px 0 6px; }
+.install-sub { color: var(--muted); font-weight: 500; line-height: 1.5; margin: 0 0 20px; }
+#installBody { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.steps { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 10px; text-align: start; }
+.step { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 2px solid var(--line); border-bottom-width: 4px; border-radius: 16px; animation: slideIn .4s both; }
+.step:nth-child(2) { animation-delay: .1s; }
+.step:nth-child(3) { animation-delay: .2s; }
+.step-num { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: #fff; font-weight: 900; display: grid; place-items: center; }
+.step-body { font-weight: 700; line-height: 1.6; font-size: 16px; }
+.step-body small { display: block; color: var(--muted); font-weight: 500; font-size: 13px; line-height: 1.4; margin-top: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; padding: 3px 10px; border-radius: 10px; background: var(--soft); border: 1.5px solid var(--line); color: #007aff; font-weight: 700; }
+.chip-row { color: var(--ink); }
+.chip-dots { color: var(--ink); font-size: 20px; line-height: 1; padding: 2px 10px; }
+.ios-share, .ios-add { width: 20px; height: 20px; }
+.ios-add { color: var(--ink); }
+.install-tip { width: 100%; text-align: start; font-size: 14px; line-height: 1.5; color: var(--muted); font-weight: 500; padding: 12px 14px; border-radius: 14px; background: var(--soft); }
+.install-tip b { color: var(--ink); }
+.install-tip .btn { display: flex; margin-top: 10px; width: 100%; }
+.install-note { color: var(--muted); font-weight: 600; margin: 0; line-height: 1.5; }
+.install-done { font-size: 18px; line-height: 1.7; padding: 18px; border-radius: 16px; background: var(--green-light); border: 2px solid var(--green); color: var(--green-dark); width: 100%; }
+.qr { padding: 12px; background: #fff; border-radius: 16px; border: 2px solid var(--line); }
+.qr svg { display: block; width: 180px; height: 180px; }
+.install-later { margin-top: 18px; color: var(--muted); }
+.install-arrow {
+  position: fixed;
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 99px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  white-space: nowrap;
+  box-shadow: 0 4px 0 var(--blue-dark), 0 6px 18px rgba(0, 0, 0, .18);
+  animation: arrowBounce 1.2s ease-in-out infinite;
+}
+@keyframes arrowBounce { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 10px); } }
+.install-btn { margin-inline-start: auto; }
+.install-btn:not([hidden]) + .bell-btn { margin-inline-start: 0; }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed;

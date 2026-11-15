@@ -10,7 +10,7 @@
   <title>Streaky – המטלות היומיות שלי</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -28,6 +28,7 @@
       <div class="stat best-stat" aria-label="שיא">
         <span class="stat-icon">🏆</span><span id="bestCount">0</span>
       </div>
+      <button class="icon-btn install-btn" id="installBtn" aria-label="התקן אפליקציה" hidden>📲</button>
       <button class="icon-btn bell-btn" id="bellBtn" aria-label="תזכורות">🔔</button>
       <button class="icon-btn" id="soundBtn" aria-label="צלילים">🔊</button>
     </header>
@@ -109,6 +110,18 @@
         <button type="button" class="btn btn-white" id="closeRemind">סגור</button>
       </div>
     </div>
+  </div>
+
+  <!-- Install guide -->
+  <div class="install" id="install" hidden>
+    <div class="install-inner">
+      <div class="install-mascot" id="installMascot"></div>
+      <h2 class="install-title">התקן את Streaky 🔥</h2>
+      <p class="install-sub">אייקון במסך הבית, מסך מלא ותזכורות יומיות. בדיוק כמו אפליקציה רגילה, בלי חנות ובחינם.</p>
+      <div id="installBody"></div>
+      <button type="button" class="text-btn install-later" id="installLater">המשך בדפדפן בינתיים</button>
+    </div>
+    <div class="install-arrow" id="installArrow" hidden>כפתור השיתוף נמצא למטה ⬇</div>
   </div>
 
   <!-- Celebration -->
