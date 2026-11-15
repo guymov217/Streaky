@@ -1,4 +1,4 @@
-package app.streaky.daily;
+package app.drbellini.study;
 
 import com.getcapacitor.BridgeActivity;
 

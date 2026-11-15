@@ -45,7 +45,7 @@ export function todayProgress(status, date) {
 export const DARK_MESSAGES = [
   { title: '🩺 לא תלמד/י, מטופלים ימותו', body: 'נשארו עוד {left}. אין לחץ, זה רק חיי אדם.' },
   { title: '⚰️ הקברן כבר לקח לך מידות', body: 'עוד {left} ועדיין לא התחלת. הוא אמר שאין מה למהר.' },
-  { title: '🐶 הצ׳יוואוה כתב צוואה', body: 'הכל עובר לחתול של השכנים. אלא אם תסיים/י עוד {left}.' },
+  { title: '🐶 ד״ר בליני כתב צוואה', body: 'הכל עובר לחתול של השכנים. אלא אם תסיים/י עוד {left}.' },
   { title: '🪦 כאן נקברו התוכניות שלך להיום', body: 'עוד {left} שלא בוצעו. נוחו על משכבכן בשלום.' },
   { title: '👵 סבתא שלך מאוכזבת', body: 'וזה אפילו לא הדבר הכי גרוע שקרה לה השנה. עוד {left}.' },
   { title: '🛋️ הפסיכולוג שלך העלה מחיר', body: 'הוא אמר שזה בגלל המקרה שלך. עוד {left} פתוחות.' },
@@ -59,8 +59,8 @@ export const DARK_MESSAGES = [
   { title: '☕ הקפה כבר התקרר', body: 'כמו החלומות שלך. עוד {left} להיום.', when: 'morning' },
   { title: '🔥 הרצף של {streak} ימים בטיפול נמרץ', body: 'הרופאים אומרים שהלילה קריטי. עוד {left} כדי לנתק אותו מהמכונות.', streak: true },
   { title: '🕯️ הדלקנו נר לזכר הרצף', body: '{streak} ימים. הוא היה צעיר מדי. עוד אפשר להחיות אותו: עוד {left}.', streak: true },
-  { title: '😤 הצ׳יוואוה לא אכל כל היום', body: 'הוא אומר שזה בגללך. עוד {left} לפני חצות.', when: 'late' },
-  { title: '🌙 חצות מתקרבת', body: 'לך יש עוד {left}. לצ׳יוואוה יש סבלנות של 3 שניות. 2... 1...', when: 'late' },
+  { title: '😤 ד״ר בליני לא אכל כל היום', body: 'הוא אומר שזה בגללך. עוד {left} לפני חצות.', when: 'late' },
+  { title: '🌙 חצות מתקרבת', body: 'לך יש עוד {left}. לד״ר בליני יש סבלנות של 3 שניות. 2... 1...', when: 'late' },
   { title: '👻 עוד מעט חצות', body: 'ואז המטלות שלא עשית יבואו לרדוף אותך בחלומות. עוד {left}.', when: 'late' },
 ];
 
@@ -98,7 +98,7 @@ export function buildMessage(status, date, time, { style = 'normal', random = Ma
   const late = toMinutes(time) >= 20 * 60;
   if (late) {
     const risk = p.streak > 0 ? ` הרצף של ${p.streak} ימים בסכנה!` : '';
-    return { title: '😤 רררר... הצ׳יוואוה עצבני!', body: `היום עומד להיגמר ועוד ${leftText} לא בוצעו.${risk}` };
+    return { title: '😤 רררר... ד״ר בליני עצבני!', body: `היום עומד להיגמר ועוד ${leftText} לא בוצעו.${risk}` };
   }
   if (p.streak > 0 && evening) {
     return { title: '🔥 הרצף שלך בסכנה!', body: `נשארו לך ${leftText} כדי לשמור על רצף של ${p.streak} ימים. אתה יכול!` };

@@ -2,13 +2,13 @@ import { dateKey, activeStreak, completeDay, weekDays } from './streak.js';
 import { pushAvailability, enablePush, disablePush, scheduleSync } from './notifications.js';
 import { initInstall } from './install.js';
 import { mascotSVG } from './mascot.js';
+import { TASK_ICONS, DEFAULT_ICON, iconHTML, suggestIcon } from './icons.js';
 import { isNative, nativeHaptic, nativeNotificationsAllowed, enableNativeNotifications, cancelNativeReminders, scheduleNativeReminders, onNativeBack } from './native.js';
 import { planLocalReminders } from './local-reminders.js';
 
 const STORAGE_KEY = 'streaky-v1';
 const XP_PER_TASK = 10;
 const PERFECT_DAY_BONUS = 20;
-const EMOJIS = ['✅', '💧', '🏃', '📚', '🧘', '🍎', '💪', '🛏️', '🧹', '💊', '✍️', '🎸', '🐶', '🌱', '💻', '📞', '🦷', '☀️'];
 const DAY_NAMES = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const MAX_TIMES = 4;
 const ANGRY_HOUR = 20; // from this hour the dog gets angry if today's tasks are not done
@@ -35,7 +35,8 @@ function loadState() {
 
 let state = loadState();
 let editing = false;
-let selectedEmoji = EMOJIS[0];
+let selectedIcon = DEFAULT_ICON;
+let iconPicked = false; // once the user taps an icon, stop auto-suggesting from the title
 
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
@@ -116,7 +117,7 @@ function buzz(pattern) {
 function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 
 function messageFor(doneCount, total, streak, perfectToday, angry) {
-  if (total === 0) return 'הב הב! 🐶 הוסף מטלות ונתחיל לבנות רצף!';
+  if (total === 0) return 'הב הב! אני ד״ר בליני 🩺 הוסף מטלות ונתחיל לבנות רצף!';
   if (perfectToday) return pick(['יום מושלם! אתה אלוף 🏆', 'כל המטלות הושלמו! נתראה מחר 😎', `רצף של ${streak}! אל תעצור עכשיו 🔥`]);
   const left = total - doneCount;
   if (angry) {
@@ -203,7 +204,14 @@ function render({ popBubble = false } = {}) {
       <span class="task-title"></span>
       <span class="check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <button class="delete-btn" aria-label="מחק מטלה">✕</button>`;
-    li.querySelector('.task-emoji').textContent = task.emoji;
+    const iconEl = li.querySelector('.task-emoji');
+    const icon = iconHTML(task.icon);
+    if (icon) {
+      iconEl.innerHTML = icon;
+      iconEl.classList.add('has-icon');
+    } else {
+      iconEl.textContent = task.emoji ?? '✅'; // tasks saved before the icon set existed
+    }
     li.querySelector('.task-title').textContent = task.title;
     li.setAttribute('role', 'checkbox');
     li.setAttribute('aria-checked', doneIds.includes(task.id));
@@ -277,9 +285,9 @@ function toggleTask(id, li) {
   if (firstPerfect) setTimeout(showCelebration, 550);
 }
 
-function addTask(title, emoji) {
+function addTask(title, icon) {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  state.tasks.push({ id, title, emoji });
+  state.tasks.push({ id, title, icon });
   save();
   play('add');
   buzz(15);
@@ -387,15 +395,18 @@ function stopConfetti() {
 function openSheet() {
   $('sheetBackdrop').hidden = false;
   $('taskInput').value = '';
-  selectedEmoji = EMOJIS[0];
-  renderEmojiGrid();
+  selectedIcon = DEFAULT_ICON;
+  iconPicked = false;
+  renderIconGrid();
   setTimeout(() => $('taskInput').focus(), 250);
 }
 function closeSheet() { $('sheetBackdrop').hidden = true; }
 
-function renderEmojiGrid() {
-  $('emojiGrid').innerHTML = EMOJIS.map((e) =>
-    `<button type="button" class="emoji-opt ${e === selectedEmoji ? 'selected' : ''}" data-emoji="${e}">${e}</button>`).join('');
+function renderIconGrid() {
+  $('iconGrid').innerHTML = TASK_ICONS.map((i) => `
+    <button type="button" class="icon-opt ${i.id === selectedIcon ? 'selected' : ''}" data-icon="${i.id}" aria-pressed="${i.id === selectedIcon}">
+      ${iconHTML(i.id)}<span>${i.label}</span>
+    </button>`).join('');
 }
 
 // ---------- Reminders sheet ----------
@@ -420,7 +431,7 @@ function renderRemind() {
   } else if (availability === 'needs-install') {
     status.classList.add('warn');
     status.innerHTML = `כדי לקבל התראות באייפון, קודם צריך להוסיף את האפליקציה למסך הבית:
-      <ol><li>לחץ על כפתור השיתוף <b>⬆️</b> בתחתית Safari</li><li>בחר <b>"הוסף למסך הבית"</b></li><li>פתח את Streaky מהאייקון והפעל כאן את ההתראות</li></ol>`;
+      <ol><li>לחץ על כפתור השיתוף <b>⬆️</b> בתחתית Safari</li><li>בחר <b>"הוסף למסך הבית"</b></li><li>פתח את Dr Bellini מהאייקון והפעל כאן את ההתראות</li></ol>`;
     toggle.hidden = true;
   } else if (availability === 'unsupported') {
     status.classList.add('warn');
@@ -428,7 +439,7 @@ function renderRemind() {
     toggle.hidden = true;
   } else if (availability === 'denied') {
     status.classList.add('warn');
-    status.textContent = 'ההתראות חסומות. אפשר להפעיל אותן בהגדרות הטלפון ← התראות ← Streaky.';
+    status.textContent = 'ההתראות חסומות. אפשר להפעיל אותן בהגדרות הטלפון ← התראות ← Dr Bellini.';
     toggle.hidden = true;
   } else {
     status.textContent = 'התזכורות כבויות';
@@ -499,18 +510,27 @@ $('editBtn').addEventListener('click', () => { editing = !editing; render(); });
 $('addBtn').addEventListener('click', openSheet);
 $('cancelAdd').addEventListener('click', closeSheet);
 $('sheetBackdrop').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeSheet(); });
-$('emojiGrid').addEventListener('click', (e) => {
-  const btn = e.target.closest('.emoji-opt');
+$('iconGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.icon-opt');
   if (!btn) return;
-  selectedEmoji = btn.dataset.emoji;
-  renderEmojiGrid();
+  selectedIcon = btn.dataset.icon;
+  iconPicked = true;
+  renderIconGrid();
+});
+$('taskInput').addEventListener('input', () => {
+  if (iconPicked) return;
+  const suggested = suggestIcon($('taskInput').value);
+  if (suggested !== selectedIcon) {
+    selectedIcon = suggested;
+    renderIconGrid();
+  }
 });
 $('addForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const title = $('taskInput').value.trim();
   if (!title) return;
   closeSheet();
-  addTask(title, selectedEmoji);
+  addTask(title, selectedIcon);
 });
 $('continueBtn').addEventListener('click', hideCelebration);
 $('bellBtn').addEventListener('click', openRemind);

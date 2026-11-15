@@ -295,6 +295,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .task.done { border-color: var(--green); background: var(--green-light); }
 .task.done .task-emoji { background: rgba(88, 204, 2, .18); }
+.task-emoji.has-icon, .task.done .task-emoji.has-icon { background: none; }
+.task-emoji img, .task-emoji svg { width: 48px; height: 48px; display: block; }
 .task.done .task-title { color: var(--green-dark); text-decoration: line-through; text-decoration-thickness: 2px; }
 .task.done .check { background: var(--green); border-color: var(--green); }
 .task.done .check svg { stroke-dashoffset: 0; }
@@ -417,19 +419,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .input:focus { border-color: var(--blue); }
 .label { font-weight: 800; color: var(--muted); margin: 16px 0 8px; font-size: 14px; }
-.emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
-.emoji-opt {
-  aspect-ratio: 1;
+.icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.icon-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px 8px;
   border-radius: 14px;
   border: 2px solid var(--line);
   border-bottom-width: 4px;
   background: var(--card);
-  font-size: 24px;
-  display: grid;
-  place-items: center;
-  padding: 0;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink);
 }
-.emoji-opt.selected { border-color: var(--blue); background: rgba(28, 176, 246, .14); }
+.icon-opt img, .icon-opt svg { width: 52px; height: 52px; display: block; }
+.icon-opt.selected { border-color: var(--blue); background: rgba(28, 176, 246, .14); color: var(--blue); }
 .sheet-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-top: 20px; }
 .sheet-actions-col { grid-template-columns: 1fr; }
 .sheet-intro { margin: -6px 0 12px; color: var(--muted); font-weight: 500; line-height: 1.5; }

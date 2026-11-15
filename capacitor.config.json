@@ -1,6 +1,6 @@
 {
-  "appId": "app.streaky.daily",
-  "appName": "Streaky",
+  "appId": "app.drbellini.study",
+  "appName": "Dr Bellini",
   "webDir": "src",
   "plugins": {
     "LocalNotifications": {

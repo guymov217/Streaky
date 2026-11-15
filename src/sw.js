@@ -1,7 +1,7 @@
-const CACHE = 'streaky-v9';
+const CACHE = 'streaky-v10';
 const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'streak.js', 'notifications.js', 'reminders.js', 'local-reminders.js', 'native.js',
   'fonts/rubik-hebrew-500-normal.woff2', 'fonts/rubik-hebrew-700-normal.woff2', 'fonts/rubik-hebrew-800-normal.woff2', 'fonts/rubik-hebrew-900-normal.woff2',
-  'fonts/rubik-latin-500-normal.woff2', 'fonts/rubik-latin-700-normal.woff2', 'fonts/rubik-latin-800-normal.woff2', 'fonts/rubik-latin-900-normal.woff2', 'install.js', 'mascot.js', 'vendor/qrcode.js', 'apple-touch-icon.png', 'icon-maskable-512.png', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+  'fonts/rubik-latin-500-normal.woff2', 'fonts/rubik-latin-700-normal.woff2', 'fonts/rubik-latin-800-normal.woff2', 'fonts/rubik-latin-900-normal.woff2', 'install.js', 'icons.js', 'icons/uworld.png', 'icons/sketchy.png', 'icons/anki.png', 'icons/firstaid.png', 'icons/nbme.png', 'mascot.js', 'vendor/qrcode.js', 'apple-touch-icon.png', 'icon-maskable-512.png', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -30,7 +30,7 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (e) => {
-  let msg = { title: 'Streaky 🔥', body: 'המטלות של היום מחכות לך!' };
+  let msg = { title: 'Dr Bellini 🩺', body: 'המטלות של היום מחכות לך!' };
   try { msg = { ...msg, ...e.data.json() }; } catch { /* use default text */ }
   e.waitUntil(self.registration.showNotification(msg.title, {
     body: msg.body,

@@ -1,4 +1,4 @@
-// "Install me" screen: platform-specific guidance for adding Streaky to the home screen.
+// "Install me" screen: platform-specific guidance for adding Dr Bellini to the home screen.
 import { isIOS, isStandalone } from './notifications.js';
 import { isNative } from './native.js';
 
@@ -7,7 +7,7 @@ const DISMISS_DAYS = 3;
 const $ = (id) => document.getElementById(id);
 
 const REPO = 'guymov217/Streaky';
-const APK_URL = `https://github.com/${REPO}/releases/latest/download/streaky.apk`;
+const APK_URL = `https://github.com/${REPO}/releases/latest/download/dr-bellini.apk`;
 
 let deferredPrompt = null;
 let installed = false;
@@ -64,7 +64,7 @@ function renderBody() {
   $('installArrow').hidden = true;
 
   if (installed) {
-    body.innerHTML = `<div class="install-done">🎉 <b>Streaky הותקנה!</b><br>פתח אותה מהאייקון במסך הבית.</div>`;
+    body.innerHTML = `<div class="install-done">🎉 <b>Dr Bellini הותקן!</b><br>פתח אותו מהאייקון במסך הבית.</div>`;
     return;
   }
 
@@ -90,9 +90,9 @@ function renderBody() {
     body.innerHTML = `
       <a class="btn btn-green btn-big" href="${APK_URL}" download>📥 הורד את האפליקציה</a>
       <ol class="steps">
-        ${step(1, `פתח את הקובץ <b>streaky.apk</b> שירד<small>מההתראה בראש המסך או מתיקיית "הורדות"</small>`)}
+        ${step(1, `פתח את הקובץ <b>dr-bellini.apk</b> שירד<small>מההתראה בראש המסך או מתיקיית "הורדות"</small>`)}
         ${step(2, `אם מופיעה הודעה על התקנה ממקור לא ידוע, לחץ <b>"הגדרות"</b>, אפשר, וחזור<small>זה חד-פעמי. אם Play Protect מזהיר, לחץ "פרטים נוספים" ← "התקן בכל זאת"</small>`)}
-        ${step(3, `לחץ <b>"התקן"</b> ופתח את Streaky 🎉<small>עובדת בלי אינטרנט, והתזכורות מגיעות מהטלפון עצמו</small>`)}
+        ${step(3, `לחץ <b>"התקן"</b> ופתח את Dr Bellini 🎉<small>עובדת בלי אינטרנט, והתזכורות מגיעות מהטלפון עצמו</small>`)}
       </ol>
       ${deferredPrompt ? '<button type="button" class="text-btn install-now">או התקנה מהירה דרך הדפדפן</button>' : ''}`;
     return;
@@ -110,7 +110,7 @@ function renderBody() {
   }
 
   body.innerHTML = `
-    <p class="install-note">Streaky נועדה לטלפון. סרוק את הקוד עם מצלמת הטלפון כדי לפתוח ולהתקין:</p>
+    <p class="install-note">Dr Bellini נועד לטלפון. סרוק את הקוד עם מצלמת הטלפון כדי לפתוח ולהתקין:</p>
     <div class="qr" id="qr"></div>
     <button type="button" class="btn btn-white btn-small copy-link">📋 העתק קישור</button>
     ${deferredPrompt ? '<button type="button" class="btn btn-green install-now">💻 התקן במחשב</button>' : ''}`;
@@ -196,7 +196,7 @@ async function checkApk() {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
     if (!res.ok) return;
     const release = await res.json();
-    apkReady = Array.isArray(release.assets) && release.assets.some((a) => a.name === 'streaky.apk');
+    apkReady = Array.isArray(release.assets) && release.assets.some((a) => a.name === 'dr-bellini.apk');
     if (apkReady && !$('install').hidden) renderBody();
   } catch { /* offline or rate-limited: keep the browser install */ }
 }

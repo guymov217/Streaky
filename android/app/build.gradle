@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "app.streaky.daily"
+    namespace = "app.drbellini.study"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "app.streaky.daily"
+        applicationId "app.drbellini.study"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes -PversionCode=<run number> so every build installs as an update

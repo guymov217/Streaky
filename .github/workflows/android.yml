@@ -55,7 +55,7 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 -d > "$STREAKY_KEYSTORE_FILE"
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION
-          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/streaky.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dr-bellini.apk"
           rm -f "$STREAKY_KEYSTORE_FILE"
 
       - name: Build test APK (no signing key configured yet)
@@ -65,20 +65,20 @@ jobs:
           echo "::warning::ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASSWORD secrets are not set. Building a test APK only; no release is published."
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug -PversionCode=${{ github.run_number }} -PversionName=$VERSION
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/streaky.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/dr-bellini.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: streaky-${{ env.VERSION }}
-          path: streaky.apk
+          name: dr-bellini-${{ env.VERSION }}
+          path: dr-bellini.apk
 
       - name: Publish release
         if: env.HAS_KEYSTORE == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" streaky.apk \
+          gh release create "v$VERSION" dr-bellini.apk \
             --target "$GITHUB_SHA" \
-            --title "Streaky $VERSION" \
-            --notes "להורדה והתקנה באנדרואיד: הורידו את streaky.apk ופתחו אותו בטלפון." \
+            --title "Dr Bellini $VERSION" \
+            --notes "להורדה והתקנה באנדרואיד: הורידו את dr-bellini.apk ופתחו אותו בטלפון." \
             --latest

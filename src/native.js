@@ -1,4 +1,4 @@
-// Bridges to native Android features when Streaky runs as the installed app (Capacitor).
+// Bridges to native Android features when Dr Bellini runs as the installed app (Capacitor).
 // In a browser none of this is loaded.
 
 export const isNative = () => window.Capacitor?.isNativePlatform?.() === true;
@@ -41,7 +41,7 @@ export async function enableNativeNotifications() {
   let perm = await notifications.checkPermissions();
   if (perm.display !== 'granted') perm = await notifications.requestPermissions();
   if (perm.display !== 'granted') {
-    throw new Error('לא ניתן אישור להתראות. אפשר להפעיל אותן בהגדרות הטלפון ← אפליקציות ← Streaky ← התראות.');
+    throw new Error('לא ניתן אישור להתראות. אפשר להפעיל אותן בהגדרות הטלפון ← אפליקציות ← Dr Bellini ← התראות.');
   }
   try {
     await notifications.createChannel({ id: CHANNEL_ID, name: 'תזכורות יומיות', description: 'תזכורות לסיים את המטלות של היום', importance: 4, vibration: true });
