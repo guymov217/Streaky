@@ -23,7 +23,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE != '' }}
       VERSION: 1.0.${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
@@ -45,27 +45,24 @@ jobs:
           npx cap sync android
 
       - name: Build signed release APK
-        if: env.HAS_KEYSTORE == 'true'
         working-directory: android
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE }}
-          STREAKY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          # The key file itself is the secret; this password only wraps it.
+          STREAKY_KEYSTORE_PASSWORD: dr-bellini-release
         run: |
-          export STREAKY_KEYSTORE_FILE="$RUNNER_TEMP/streaky.p12"
-          printf '%s' "$KEYSTORE_B64" | base64 -d > "$STREAKY_KEYSTORE_FILE"
+          export STREAKY_KEYSTORE_FILE="$RUNNER_TEMP/release.p12"
+          if [ -n "$KEYSTORE_B64" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 -d > "$STREAKY_KEYSTORE_FILE"
+          else
+            echo "::warning::The ANDROID_KEYSTORE secret is not set, so this build is signed with a temporary key and is not published."
+            keytool -genkeypair -storetype PKCS12 -keystore "$STREAKY_KEYSTORE_FILE" -alias drbellini -keyalg EC -groupname secp256r1 \
+              -validity 2 -storepass "$STREAKY_KEYSTORE_PASSWORD" -keypass "$STREAKY_KEYSTORE_PASSWORD" -dname "CN=Temporary"
+          fi
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dr-bellini.apk"
           rm -f "$STREAKY_KEYSTORE_FILE"
-
-      - name: Build test APK (no signing key configured yet)
-        if: env.HAS_KEYSTORE != 'true'
-        working-directory: android
-        run: |
-          echo "::warning::ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASSWORD secrets are not set. Building a test APK only; no release is published."
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug -PversionCode=${{ github.run_number }} -PversionName=$VERSION
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/dr-bellini.apk"
 
       - uses: actions/upload-artifact@v4
         with:

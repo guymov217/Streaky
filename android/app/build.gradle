@@ -23,8 +23,9 @@ android {
         release {
             if (keystorePath) {
                 storeFile file(keystorePath)
+                storeType 'pkcs12'
                 storePassword System.getenv('STREAKY_KEYSTORE_PASSWORD')
-                keyAlias 'streaky'
+                keyAlias 'drbellini'
                 keyPassword System.getenv('STREAKY_KEYSTORE_PASSWORD')
             }
         }
