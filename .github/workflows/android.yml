@@ -74,8 +74,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cat > release-notes.md <<'NOTES'
+          ## 📲 התקנה באנדרואיד
+          1. הורידו את **dr-bellini.apk** (למטה, תחת Assets).
+          2. פתחו את הקובץ. אם מופיעה הודעה על התקנה ממקור לא ידוע, אשרו פעם אחת.
+          3. לחצו **"התקן"**. אם Play Protect מזהיר, בחרו "פרטים נוספים" ← "התקן בכל זאת".
+
+          **עדכון:** מתקינים את הקובץ החדש מעל הקיים. הרצף והמטלות נשמרים.
+          NOTES
           gh release create "v$VERSION" dr-bellini.apk \
             --target "$GITHUB_SHA" \
             --title "Dr Bellini $VERSION" \
-            --notes "להורדה והתקנה באנדרואיד: הורידו את dr-bellini.apk ופתחו אותו בטלפון." \
+            --notes-file release-notes.md \
             --latest
