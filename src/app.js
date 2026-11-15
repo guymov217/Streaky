@@ -1,6 +1,7 @@
 import { dateKey, activeStreak, completeDay, weekDays } from './streak.js';
 import { pushAvailability, enablePush, disablePush, scheduleSync } from './notifications.js';
 import { initInstall } from './install.js';
+import { mascotSVG } from './mascot.js';
 
 const STORAGE_KEY = 'streaky-v1';
 const XP_PER_TASK = 10;
@@ -8,6 +9,7 @@ const PERFECT_DAY_BONUS = 20;
 const EMOJIS = ['✅', '💧', '🏃', '📚', '🧘', '🍎', '💪', '🛏️', '🧹', '💊', '✍️', '🎸', '🐶', '🌱', '💻', '📞', '🦷', '☀️'];
 const DAY_NAMES = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const MAX_TIMES = 4;
+const ANGRY_HOUR = 20; // from this hour the dog gets angry if today's tasks are not done
 const DEFAULT_NOTIFY = { enabled: false, times: ['09:00', '20:00'], nudgeDismissed: false };
 
 const $ = (id) => document.getElementById(id);
@@ -86,46 +88,24 @@ function buzz(pattern) {
   if (navigator.vibrate) navigator.vibrate(pattern);
 }
 
-// ---------- Mascot ----------
-function mascotSVG(mood) {
-  const mouths = {
-    happy: '<path d="M40 70 Q50 80 60 70" stroke="#4b1d00" stroke-width="4" fill="none" stroke-linecap="round"/>',
-    excited: '<path d="M38 67 Q50 86 62 67 Z" fill="#4b1d00"/><path d="M44 74 Q50 80 56 74 Z" fill="#ff6b6b"/>',
-    sleepy: '<path d="M43 73 H57" stroke="#4b1d00" stroke-width="4" stroke-linecap="round"/>',
-  };
-  const eyes = mood === 'sleepy'
-    ? '<path d="M32 56 Q38 61 44 56" stroke="#4b1d00" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M56 56 Q62 61 68 56" stroke="#4b1d00" stroke-width="4" fill="none" stroke-linecap="round"/>'
-    : `<g class="eye"><ellipse cx="38" cy="55" rx="7" ry="9" fill="#fff"/><circle cx="37" cy="56" r="4.5" fill="#4b1d00"/><circle cx="35.5" cy="54" r="1.6" fill="#fff"/></g>
-       <g class="eye"><ellipse cx="62" cy="55" rx="7" ry="9" fill="#fff"/><circle cx="61" cy="56" r="4.5" fill="#4b1d00"/><circle cx="59.5" cy="54" r="1.6" fill="#fff"/></g>`;
-  const grey = mood === 'sleepy';
-  return `
-  <svg viewBox="0 0 100 110" aria-hidden="true">
-    <defs>
-      <linearGradient id="fl-${mood}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="${grey ? '#c9c9c9' : '#ffc800'}"/>
-        <stop offset="1" stop-color="${grey ? '#9a9a9a' : '#ff7a00'}"/>
-      </linearGradient>
-    </defs>
-    <ellipse cx="50" cy="104" rx="26" ry="5" fill="#000" opacity=".08"/>
-    <path d="M50 4 C58 22 82 30 84 62 C86 86 70 100 50 100 C30 100 14 86 16 62 C17 46 26 40 30 28 C36 38 40 40 42 40 C42 26 44 14 50 4 Z" fill="url(#fl-${mood})"/>
-    <path d="M50 46 C56 56 68 62 68 76 C68 88 60 94 50 94 C40 94 32 88 32 76 C32 66 40 62 44 54 C46 58 48 58 50 46 Z" fill="${grey ? '#e0e0e0' : '#ffe27a'}" opacity=".85"/>
-    ${eyes}
-    <circle cx="28" cy="68" r="5" fill="#ff5e5e" opacity="${grey ? 0 : 0.35}"/>
-    <circle cx="72" cy="68" r="5" fill="#ff5e5e" opacity="${grey ? 0 : 0.35}"/>
-    ${mouths[mood]}
-  </svg>`;
-}
-
 // ---------- Messages ----------
 function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 
-function messageFor(doneCount, total, streak, perfectToday) {
-  if (total === 0) return 'היי! אני להבי 👋 הוסף מטלות ונתחיל לבנות רצף!';
+function messageFor(doneCount, total, streak, perfectToday, angry) {
+  if (total === 0) return 'הב הב! 🐶 הוסף מטלות ונתחיל לבנות רצף!';
   if (perfectToday) return pick(['יום מושלם! אתה אלוף 🏆', 'כל המטלות הושלמו! נתראה מחר 😎', `רצף של ${streak}! אל תעצור עכשיו 🔥`]);
+  const left = total - doneCount;
+  if (angry) {
+    const leftText = left === 1 ? 'מטלה אחת' : `${left} מטלות`;
+    return pick([
+      `רררר... 😤 היום כמעט נגמר ועוד ${leftText} לא בוצעו!`,
+      streak > 0 ? `הב! 💢 הרצף של ${streak} ימים בסכנה! קדימה!` : `נו?! 😠 נשארו ${leftText}, אני מחכה!`,
+      `אני לא הולך לישון עד שתסיים! 😤 עוד ${leftText}`,
+    ]);
+  }
   if (doneCount === 0) {
     return streak > 0 ? `יש לך רצף של ${streak} ימים 🔥 בוא נשמור עליו!` : 'יום חדש, התחלה חדשה! בוא נתחיל 💪';
   }
-  const left = total - doneCount;
   if (left === 1) return 'עוד מטלה אחת בלבד! אתה כמעט שם 🤩';
   if (doneCount / total >= 0.5) return pick([`יותר מחצי! עוד ${left} ✨`, `איזה קצב! נשארו ${left} מטלות 🚀`]);
   return pick(['התחלה מעולה! ממשיכים 👏', `יפה מאוד! עוד ${left} לסיום 💪`]);
@@ -151,16 +131,21 @@ function render({ popBubble = false } = {}) {
     || ['unsupported', 'denied'].includes(pushAvailability());
 
   // Mascot + bubble
-  const mood = perfectToday ? 'excited' : (total > 0 && doneCount === 0 && streak === 0 && state.best > 0 ? 'sleepy' : 'happy');
+  const angry = total > 0 && !perfectToday && doneCount < total && new Date().getHours() >= ANGRY_HOUR;
+  const mood = perfectToday ? 'excited'
+    : angry ? 'angry'
+    : (total > 0 && doneCount === 0 && streak === 0 && state.best > 0 ? 'sleepy' : 'happy');
   const mascot = $('mascot');
   if (mascot.dataset.mood !== mood) {
     mascot.innerHTML = mascotSVG(mood);
     mascot.dataset.mood = mood;
   }
+  mascot.classList.toggle('angry', angry);
   const bubble = $('bubble');
-  const key = `${doneCount}/${total}/${perfectToday}`;
+  bubble.classList.toggle('angry', angry);
+  const key = `${doneCount}/${total}/${perfectToday}/${angry}`;
   if (bubble.dataset.key !== key) {
-    bubble.textContent = messageFor(doneCount, total, streak, perfectToday);
+    bubble.textContent = messageFor(doneCount, total, streak, perfectToday, angry);
     bubble.dataset.key = key;
     if (popBubble) { bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop'); }
   }
@@ -521,6 +506,8 @@ $('streakStat').addEventListener('click', () => {
 
 // Re-check the date when the app comes back to the foreground (e.g. the next morning).
 document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+// Keep mood and date current while the app stays open (e.g. it turns 20:00).
+setInterval(() => { if (!document.hidden) render(); }, 60_000);
 
 // Permission revoked in the phone settings: reflect it in the app.
 if (state.notify.enabled && 'Notification' in window && Notification.permission !== 'granted') {

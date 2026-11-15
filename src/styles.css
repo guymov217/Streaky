@@ -34,7 +34,9 @@
 
 html, body {
   margin: 0;
-  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  -webkit-text-size-adjust: 100%;
   background: var(--bg);
   color: var(--ink);
   font-family: 'Rubik', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
@@ -49,6 +51,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   max-width: 520px;
   margin: 0 auto;
   min-height: 100%;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -61,7 +64,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  padding: calc(10px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
   background: var(--bg);
   border-bottom: 2px solid var(--line);
 }
@@ -117,6 +120,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 @keyframes jump { 0% { transform: translateY(0) scale(1); } 30% { transform: translateY(-22px) scale(1.08, .95); } 100% { transform: translateY(0) scale(1); } }
 
+.mascot-wrap.angry { animation: angryShake 1.6s ease-in-out infinite; }
+@keyframes angryShake {
+  0%, 55%, 100% { transform: translate(0, 0) rotate(0); }
+  60% { transform: translate(-3px, 0) rotate(-3deg); }
+  65% { transform: translate(3px, 0) rotate(3deg); }
+  70% { transform: translate(-3px, 0) rotate(-2deg); }
+  75% { transform: translate(3px, 0) rotate(2deg); }
+  80% { transform: translate(0, 0) rotate(0); }
+}
+.anger { animation: angerPulse .8s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+@keyframes angerPulse { from { transform: scale(.85); } to { transform: scale(1.15); } }
+.bubble.angry { border-color: var(--red); color: var(--red); }
+.bubble.angry::before { border-left-color: var(--red); }
 .eye { animation: blink 4s infinite; transform-origin: center; transform-box: fill-box; }
 @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
 
@@ -563,4 +579,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Narrow phones (e.g. iPhone SE): keep the top bar within the screen width */
+@media (max-width: 380px) {
+  .topbar { gap: 0; padding-inline: max(8px, env(safe-area-inset-left)); }
+  .stat { font-size: 16px; padding: 6px 5px; gap: 4px; }
+  .stat-icon { font-size: 19px; }
+  .icon-btn { font-size: 19px; padding: 6px 4px; }
+  .week { gap: 3px; }
+  .day-dot { width: 32px; height: 32px; }
 }

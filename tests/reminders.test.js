@@ -30,8 +30,15 @@ test('no message when the day is already perfect or there are no tasks', () => {
   assert.equal(buildMessage(status({ total: 0 }), '2026-11-15', '20:00'), null);
 });
 
+test('late reminder comes from the angry dog', () => {
+  const m = buildMessage(status({ done: 1 }), '2026-11-15', '21:00');
+  assert.match(m.title, /עצבני/);
+  assert.match(m.body, /2 מטלות/);
+  assert.match(m.body, /4 ימים/);
+});
+
 test('evening reminder warns that the streak is at risk', () => {
-  const m = buildMessage(status({ done: 1 }), '2026-11-15', '20:00');
+  const m = buildMessage(status({ done: 1 }), '2026-11-15', '18:00');
   assert.match(m.title, /בסכנה/);
   assert.match(m.body, /2 מטלות/);
   assert.match(m.body, /4 ימים/);
@@ -43,7 +50,7 @@ test('status from yesterday counts as nothing done today', () => {
 });
 
 test('a broken streak is not mentioned as at risk', () => {
-  const m = buildMessage(status({ lastDone: '2026-11-10' }), '2026-11-15', '20:00');
+  const m = buildMessage(status({ lastDone: '2026-11-10' }), '2026-11-15', '18:00');
   assert.doesNotMatch(m.title, /בסכנה/);
 });
 

@@ -1,5 +1,5 @@
-const CACHE = 'streaky-v3';
-const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'streak.js', 'notifications.js', 'install.js', 'vendor/qrcode.js', 'apple-touch-icon.png', 'icon-maskable-512.png', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'streaky-v5';
+const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'streak.js', 'notifications.js', 'install.js', 'mascot.js', 'vendor/qrcode.js', 'apple-touch-icon.png', 'icon-maskable-512.png', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

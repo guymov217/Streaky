@@ -47,7 +47,12 @@ export function buildMessage(status, date, time) {
   const left = p.total - p.done;
   const leftText = left === 1 ? 'מטלה אחת' : `${left} מטלות`;
   const evening = toMinutes(time) >= 17 * 60;
+  const late = toMinutes(time) >= 20 * 60;
 
+  if (late) {
+    const risk = p.streak > 0 ? ` הרצף של ${p.streak} ימים בסכנה!` : '';
+    return { title: '😤 רררר... הצ׳יוואוה עצבני!', body: `היום עומד להיגמר ועוד ${leftText} לא בוצעו.${risk}` };
+  }
   if (p.streak > 0 && evening) {
     return { title: '🔥 הרצף שלך בסכנה!', body: `נשארו לך ${leftText} כדי לשמור על רצף של ${p.streak} ימים. אתה יכול!` };
   }
