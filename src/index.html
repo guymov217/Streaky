@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#58cc02">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Streaky">
+  <title>Streaky – המטלות היומיות שלי</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <button class="stat streak-stat" id="streakStat" aria-label="רצף ימים">
+        <span class="stat-icon flame-icon">🔥</span><span id="streakCount">0</span>
+      </button>
+      <div class="stat xp-stat" aria-label="נקודות XP">
+        <span class="stat-icon">💎</span><span id="xpCount">0</span>
+      </div>
+      <div class="stat best-stat" aria-label="שיא">
+        <span class="stat-icon">🏆</span><span id="bestCount">0</span>
+      </div>
+      <button class="icon-btn bell-btn" id="bellBtn" aria-label="תזכורות">🔔</button>
+      <button class="icon-btn" id="soundBtn" aria-label="צלילים">🔊</button>
+    </header>
+
+    <main class="content">
+      <section class="hero">
+        <div class="mascot-wrap" id="mascot"></div>
+        <div class="bubble" id="bubble">היי! בוא נתחיל את היום 💪</div>
+      </section>
+
+      <section class="progress-card">
+        <div class="progress-head">
+          <span class="progress-title">ההתקדמות היומית</span>
+          <span class="progress-count" id="progressCount">0/0</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"><span class="shine"></span></div></div>
+      </section>
+
+      <section class="nudge" id="nudge" hidden>
+        <div class="nudge-icon">🔔</div>
+        <div class="nudge-text">
+          <strong>רוצה שאזכיר לך?</strong>
+          <span>אשלח התראה רק אם עוד לא סיימת את המטלות</span>
+        </div>
+        <button class="btn btn-blue btn-small" id="nudgeYes">כן!</button>
+        <button class="nudge-close" id="nudgeClose" aria-label="סגור">✕</button>
+      </section>
+
+      <section class="week" id="week" aria-label="השבוע שלי"></section>
+
+      <section class="tasks-head">
+        <h2>המטלות של היום</h2>
+        <button class="text-btn" id="editBtn">עריכה</button>
+      </section>
+
+      <ul class="tasks" id="tasks"></ul>
+
+      <div class="empty" id="empty" hidden>
+        <div class="empty-emoji">📝</div>
+        <p>עוד אין לך מטלות.<br>הוסף את המטלה הראשונה שלך ותתחיל לבנות רצף!</p>
+      </div>
+    </main>
+
+    <footer class="bottom">
+      <button class="btn btn-green btn-big" id="addBtn"><span class="plus">+</span> הוסף מטלה</button>
+    </footer>
+  </div>
+
+  <!-- Add task sheet -->
+  <div class="sheet-backdrop" id="sheetBackdrop" hidden>
+    <form class="sheet" id="addForm" autocomplete="off">
+      <div class="sheet-handle"></div>
+      <h3>מטלה חדשה</h3>
+      <input id="taskInput" class="input" maxlength="60" placeholder="למשל: לשתות 8 כוסות מים" required>
+      <p class="label">בחר אייקון</p>
+      <div class="emoji-grid" id="emojiGrid"></div>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-white" id="cancelAdd">ביטול</button>
+        <button type="submit" class="btn btn-green">הוסף</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Reminders sheet -->
+  <div class="sheet-backdrop" id="remindBackdrop" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <h3>🔔 תזכורות</h3>
+      <p class="sheet-intro">אשלח לך התראה בשעות שתבחר, <b>רק אם עוד לא סיימת</b> את כל המטלות של היום.</p>
+
+      <div class="remind-status" id="remindStatus"></div>
+
+      <p class="label">שעות התזכורת</p>
+      <div class="times" id="times"></div>
+      <button type="button" class="text-btn add-time" id="addTime">+ הוסף שעה</button>
+
+      <div class="sheet-actions sheet-actions-col">
+        <button type="button" class="btn btn-green btn-big" id="pushToggle">הפעל התראות</button>
+        <button type="button" class="btn btn-white" id="closeRemind">סגור</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Celebration -->
+  <div class="celebrate" id="celebrate" hidden>
+    <canvas id="confetti"></canvas>
+    <div class="celebrate-inner">
+      <div class="big-flame" id="bigFlame"></div>
+      <div class="streak-number"><span id="celebrateStreak">0</span></div>
+      <div class="streak-label">ימים ברצף!</div>
+      <h2 class="celebrate-title" id="celebrateTitle">יום מושלם! 🎉</h2>
+      <p class="celebrate-sub" id="celebrateSub">השלמת את כל המטלות של היום</p>
+      <div class="reward-row">
+        <div class="reward"><span class="reward-label">XP היום</span><span class="reward-val" id="rewardXp">+0</span></div>
+        <div class="reward reward-orange"><span class="reward-label">רצף</span><span class="reward-val" id="rewardStreak">🔥 0</span></div>
+        <div class="reward reward-blue"><span class="reward-label">שיא</span><span class="reward-val" id="rewardBest">🏆 0</span></div>
+      </div>
+      <button class="btn btn-green btn-big" id="continueBtn">המשך</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

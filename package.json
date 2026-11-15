@@ -1,0 +1,14 @@
+{
+  "name": "streaky",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --experimental-test-module-mocks tests/*.test.js",
+    "start": "npx --yes serve src -l 5173"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.9",
+    "web-push": "^4.0.0"
+  }
+}
