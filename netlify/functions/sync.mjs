@@ -1,5 +1,5 @@
 import { devices } from '../lib/store.js';
-import { sanitizeRecord } from '../lib/reminders.js';
+import { sanitizeRecord } from '../../src/reminders.js';
 
 const ID_RE = /^[a-z0-9]{16,64}$/;
 

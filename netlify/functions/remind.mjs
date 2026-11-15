@@ -1,6 +1,6 @@
 import * as webpush from 'web-push';
 import { devices, vapidKeys } from '../lib/store.js';
-import { dueReminders, buildMessage } from '../lib/reminders.js';
+import { dueReminders, buildMessage } from '../../src/reminders.js';
 
 // Runs every 15 minutes and nudges devices whose reminder time has come
 // and whose daily tasks are not finished yet.

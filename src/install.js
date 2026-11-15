@@ -1,5 +1,6 @@
 // "Install me" screen: platform-specific guidance for adding Streaky to the home screen.
 import { isIOS, isStandalone } from './notifications.js';
+import { isNative } from './native.js';
 
 const DISMISS_KEY = 'streaky-install-dismissed';
 const DISMISS_DAYS = 3;
@@ -134,7 +135,7 @@ function recentlyDismissed() {
 }
 
 export function initInstall() {
-  if (isStandalone()) return; // already running as an installed app
+  if (isStandalone() || isNative()) return; // already running as an installed app
 
   $('installBtn').hidden = false;
   $('installBtn').addEventListener('click', openInstall);

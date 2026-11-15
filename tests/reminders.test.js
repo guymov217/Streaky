@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { localNow, dueReminders, buildMessage, sanitizeRecord } from '../netlify/lib/reminders.js';
+import { localNow, dueReminders, buildMessage, sanitizeRecord } from '../src/reminders.js';
 
 const TZ = 'Asia/Jerusalem';
 // 2026-11-15 20:10 in Israel (UTC+2 in November)
@@ -75,7 +75,7 @@ test('sanitizeRecord rejects non push-service endpoints and bad input', () => {
 });
 
 // ---------- dark humour ----------
-import { DARK_MESSAGES } from '../netlify/lib/reminders.js';
+import { DARK_MESSAGES } from '../src/reminders.js';
 
 const seq = (i, n) => () => (i + 0.5) / n; // deterministic "random" that walks every option
 

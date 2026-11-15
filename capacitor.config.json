@@ -1,0 +1,15 @@
+{
+  "appId": "app.streaky.daily",
+  "appName": "Streaky",
+  "webDir": "src",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_streaky",
+      "iconColor": "#58CC02"
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DEFAULT"
+    }
+  }
+}

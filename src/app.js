@@ -2,6 +2,8 @@ import { dateKey, activeStreak, completeDay, weekDays } from './streak.js';
 import { pushAvailability, enablePush, disablePush, scheduleSync } from './notifications.js';
 import { initInstall } from './install.js';
 import { mascotSVG } from './mascot.js';
+import { isNative, nativeHaptic, nativeNotificationsAllowed, enableNativeNotifications, cancelNativeReminders, scheduleNativeReminders, onNativeBack } from './native.js';
+import { planLocalReminders } from './local-reminders.js';
 
 const STORAGE_KEY = 'streaky-v1';
 const XP_PER_TASK = 10;
@@ -37,8 +39,21 @@ let selectedEmoji = EMOJIS[0];
 
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
-  scheduleSync(state, progressStatus());
+  syncReminders();
 }
+
+// Installed Android app: schedule reminders on the phone. Browser/iPhone: report progress to the push server.
+function syncReminders() {
+  if (!isNative()) {
+    scheduleSync(state, progressStatus());
+    return;
+  }
+  if (state.notify.enabled) {
+    scheduleNativeReminders(() => planLocalReminders(progressStatus(), { times: state.notify.times, style: state.notify.style }));
+  }
+}
+
+const reminderAvailability = () => (isNative() ? 'available' : pushAvailability());
 
 // Today's progress as reported to the reminder server.
 function progressStatus() {
@@ -90,6 +105,10 @@ function play(name) {
   try { sounds[name](); } catch { /* audio unsupported */ }
 }
 function buzz(pattern) {
+  if (isNative()) {
+    nativeHaptic(Array.isArray(pattern) ? 'success' : 'tap');
+    return;
+  }
   if (navigator.vibrate) navigator.vibrate(pattern);
 }
 
@@ -133,7 +152,7 @@ function render({ popBubble = false } = {}) {
   $('soundBtn').textContent = state.sound ? '🔊' : '🔇';
   $('bellBtn').classList.toggle('off', !state.notify.enabled);
   $('nudge').hidden = total === 0 || state.notify.enabled || state.notify.nudgeDismissed
-    || ['unsupported', 'denied'].includes(pushAvailability());
+    || ['unsupported', 'denied'].includes(reminderAvailability());
 
   // Mascot + bubble
   const angry = total > 0 && !perfectToday && doneCount < total && new Date().getHours() >= ANGRY_HOUR;
@@ -389,7 +408,7 @@ function closeRemind() { $('remindBackdrop').hidden = true; }
 function renderRemind() {
   const status = $('remindStatus');
   const toggle = $('pushToggle');
-  const availability = pushAvailability();
+  const availability = reminderAvailability();
   status.className = 'remind-status';
   toggle.hidden = false;
 
@@ -436,10 +455,12 @@ async function togglePush() {
   try {
     if (state.notify.enabled) {
       state.notify.enabled = false;
-      await disablePush(state);
+      if (isNative()) await cancelNativeReminders();
+      else await disablePush(state);
       toast('התזכורות כובו');
     } else {
-      await enablePush(state, progressStatus());
+      if (isNative()) await enableNativeNotifications();
+      else await enablePush(state, progressStatus());
       state.notify.enabled = true;
       play('add');
       toast(`🔔 מעולה! אזכיר לך ב-${state.notify.times.join(' וב-')}`);
@@ -452,6 +473,15 @@ async function togglePush() {
     renderRemind();
     render();
   }
+}
+
+// Android back button: close whatever is on top. Returns false when nothing was open.
+function closeTopOverlay() {
+  if (!$('celebrate').hidden) { hideCelebration(); return true; }
+  if (!$('remindBackdrop').hidden) { closeRemind(); return true; }
+  if (!$('sheetBackdrop').hidden) { closeSheet(); return true; }
+  if (editing) { editing = false; render(); return true; }
+  return false;
 }
 
 // ---------- Events ----------
@@ -522,12 +552,23 @@ $('streakStat').addEventListener('click', () => {
 });
 
 // Re-check the date when the app comes back to the foreground (e.g. the next morning).
-document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  render();
+  if (isNative()) syncReminders(); // extend the scheduled days each time the app is opened
+});
 // Keep mood and date current while the app stays open (e.g. it turns 20:00).
 setInterval(() => { if (!document.hidden) render(); }, 60_000);
 
 // Permission revoked in the phone settings: reflect it in the app.
-if (state.notify.enabled && 'Notification' in window && Notification.permission !== 'granted') {
+if (isNative()) {
+  if (state.notify.enabled) {
+    nativeNotificationsAllowed().then((ok) => {
+      if (!ok) { state.notify.enabled = false; save(); render(); }
+    });
+  }
+  onNativeBack(closeTopOverlay);
+} else if (state.notify.enabled && 'Notification' in window && Notification.permission !== 'granted') {
   state.notify.enabled = false;
 }
 save();
@@ -535,6 +576,6 @@ render();
 $('installMascot').innerHTML = mascotSVG('happy');
 initInstall();
 
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+if (!isNative() && 'serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }

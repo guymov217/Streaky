@@ -1,0 +1,84 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'android/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install dependencies and copy the web app into the Android project
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Build signed release APK
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE }}
+          STREAKY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          export STREAKY_KEYSTORE_FILE="$RUNNER_TEMP/streaky.p12"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$STREAKY_KEYSTORE_FILE"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/streaky.apk"
+          rm -f "$STREAKY_KEYSTORE_FILE"
+
+      - name: Build test APK (no signing key configured yet)
+        if: env.HAS_KEYSTORE != 'true'
+        working-directory: android
+        run: |
+          echo "::warning::ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASSWORD secrets are not set. Building a test APK only; no release is published."
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug -PversionCode=${{ github.run_number }} -PversionName=$VERSION
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/streaky.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: streaky-${{ env.VERSION }}
+          path: streaky.apk
+
+      - name: Publish release
+        if: env.HAS_KEYSTORE == 'true' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" streaky.apk \
+            --target "$GITHUB_SHA" \
+            --title "Streaky $VERSION" \
+            --notes "להורדה והתקנה באנדרואיד: הורידו את streaky.apk ופתחו אותו בטלפון." \
+            --latest

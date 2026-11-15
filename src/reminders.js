@@ -1,5 +1,5 @@
 // Pure reminder logic: which reminders are due and what they should say.
-import { addDays } from '../../src/streak.js';
+import { addDays } from './streak.js';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const ID_RE = /^[a-z0-9]{16,64}$/;
