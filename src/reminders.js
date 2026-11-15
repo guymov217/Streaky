@@ -1,5 +1,5 @@
 // Pure reminder logic: which reminders are due and what they should say.
-import { addDays } from './streak.js';
+import { activeStreak, restDayChecker, scheduledOn } from './streak.js';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const ID_RE = /^[a-z0-9]{16,64}$/;
@@ -32,12 +32,30 @@ export function dueReminders(record, now) {
 }
 
 // Progress for `date`: a status synced on an earlier day means nothing is done yet today.
+// Progress for `date`. With the task list, only the tasks scheduled on that weekday count;
+// a status synced on an earlier day means nothing is done yet on `date`.
 export function todayProgress(status, date) {
-  const total = status.total;
-  const done = status.date === date ? Math.min(status.done, total) : 0;
-  const perfect = status.lastDone === date;
-  const streakAlive = status.lastDone === date || status.lastDone === addDays(date, -1);
-  return { total, done, perfect, streak: streakAlive ? status.streak : 0 };
+  const tasks = Array.isArray(status.tasks) && status.tasks.length ? status.tasks : null;
+  const sameDay = status.date === date;
+  let total; let done; let pending;
+  if (tasks) {
+    const scheduled = tasks.filter((t) => scheduledOn(t.days, date));
+    total = scheduled.length;
+    done = sameDay ? scheduled.filter((t) => t.done).length : 0;
+    pending = scheduled.filter((t) => !(sameDay && t.done)).map((t) => t.title);
+  } else {
+    total = status.total;
+    done = sameDay ? Math.min(status.done, total) : 0;
+    pending = [];
+  }
+  const isRest = restDayChecker(tasks ?? []);
+  return {
+    total,
+    done,
+    pending,
+    perfect: status.lastDone === date,
+    streak: activeStreak({ lastDone: status.lastDone, streak: status.streak }, date, isRest),
+  };
 }
 
 // Dark-humour reminders in the chihuahua's voice. Placeholders: {left} ("3 מטלות" / "מטלה אחת"),
@@ -48,14 +66,14 @@ export const DARK_MESSAGES = [
   { title: '🐶 ד״ר בליני כתב צוואה', body: 'הכל עובר לחתול של השכנים. אלא אם תסיים/י עוד {left}.' },
   { title: '🪦 כאן נקברו התוכניות שלך להיום', body: 'עוד {left} שלא בוצעו. נוחו על משכבכן בשלום.' },
   { title: '👵 סבתא שלך מאוכזבת', body: 'וזה אפילו לא הדבר הכי גרוע שקרה לה השנה. עוד {left}.' },
-  { title: '🛋️ הפסיכולוג שלך העלה מחיר', body: 'הוא אמר שזה בגלל המקרה שלך. עוד {left} פתוחות.' },
-  { title: '🧟 מה ההבדל בינך לבין זומבי?', body: 'זומבי לפחות יוצא מהבית. עוד {left} מחכות.' },
+  { title: '🛋️ הפסיכולוג שלך העלה מחיר', body: 'הוא אמר שזה בגלל המקרה שלך. עוד {left} על הפרק.' },
+  { title: '🧟 מה ההבדל בינך לבין זומבי?', body: 'זומבי לפחות יוצא מהבית. נשאר לך לסיים: {left}.' },
   { title: '📉 המניה שלך בירידה', body: 'המשקיעים כבר מוכרים. עוד {left} כדי להציל את החברה.' },
   { title: '🦴 אפילו העצם שלי יותר פרודוקטיבית', body: 'והיא קבורה בגינה. עוד {left}.' },
   { title: '📌 "{task}" שאלה עלייך', body: 'אמרתי לה שאת/ה עסוק/ה. היא לא האמינה. גם אני לא.' },
   { title: '💔 "{task}" חושדת שאת/ה כבר לא אוהב/ת אותה', body: 'עוד יום כזה והיא חוזרת לגור אצל אמא שלה.' },
   { title: '🕵️ "{task}" הגישה תלונה במשטרה', body: 'סעיף: הזנחה בנסיבות מחמירות. עוד {left} לסגור את התיק.' },
-  { title: '☀️ בוקר טוב, אכזבה קטנה', body: 'סתם. אבל עוד {left} מחכות, ואנחנו עוקבים.', when: 'morning' },
+  { title: '☀️ בוקר טוב, אכזבה קטנה', body: 'סתם. אבל עוד {left} על הלוח, ואנחנו עוקבים.', when: 'morning' },
   { title: '☕ הקפה כבר התקרר', body: 'כמו החלומות שלך. עוד {left} להיום.', when: 'morning' },
   { title: '🔥 הרצף של {streak} ימים בטיפול נמרץ', body: 'הרופאים אומרים שהלילה קריטי. עוד {left} כדי לנתק אותו מהמכונות.', streak: true },
   { title: '🕯️ הדלקנו נר לזכר הרצף', body: '{streak} ימים. הוא היה צעיר מדי. עוד אפשר להחיות אותו: עוד {left}.', streak: true },
@@ -74,6 +92,8 @@ function pickDark(p, time, pending, random, avoid) {
   return { message: pool[Math.floor(random() * pool.length)], pendingPick: pending[Math.floor(random() * pending.length)] };
 }
 
+const count = (n) => (n === 1 ? 'מטלה אחת' : `${n} מטלות`);
+
 function fill(template, values) {
   return template.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '');
 }
@@ -84,12 +104,11 @@ export function buildMessage(status, date, time, { style = 'normal', random = Ma
   const p = todayProgress(status, date);
   if (p.total === 0 || p.perfect || p.done >= p.total) return null;
   const left = p.total - p.done;
-  const leftText = left === 1 ? 'מטלה אחת' : `${left} מטלות`;
+  const leftText = count(left);
+  const one = left === 1;
 
   if (style === 'dark') {
-    const tasks = Array.isArray(status.tasks) ? status.tasks : [];
-    const pending = (status.date === date ? tasks.filter((t) => !t.done) : tasks).map((t) => t.title);
-    const { message, pendingPick } = pickDark(p, time, pending, random, avoid);
+    const { message, pendingPick } = pickDark(p, time, p.pending, random, avoid);
     const values = { left: leftText, streak: String(p.streak), task: pendingPick };
     return { title: fill(message.title, values), body: fill(message.body, values), key: message.title };
   }
@@ -98,17 +117,25 @@ export function buildMessage(status, date, time, { style = 'normal', random = Ma
   const late = toMinutes(time) >= 20 * 60;
   if (late) {
     const risk = p.streak > 0 ? ` הרצף של ${p.streak} ימים בסכנה!` : '';
-    return { title: '😤 רררר... ד״ר בליני עצבני!', body: `היום עומד להיגמר ועוד ${leftText} לא בוצעו.${risk}` };
+    return { title: '😤 רררר... ד״ר בליני עצבני!', body: `היום עומד להיגמר ועוד ${leftText} ${one ? 'לא בוצעה' : 'לא בוצעו'}.${risk}` };
   }
   if (p.streak > 0 && evening) {
-    return { title: '🔥 הרצף שלך בסכנה!', body: `נשארו לך ${leftText} כדי לשמור על רצף של ${p.streak} ימים. אתה יכול!` };
+    return { title: '🔥 הרצף שלך בסכנה!', body: `${one ? 'נשארה' : 'נשארו'} לך ${leftText} כדי לשמור על רצף של ${p.streak} ימים. אתה יכול!` };
   }
   if (p.done === 0) {
+    const waiting = `${count(p.total)} ${p.total === 1 ? 'מחכה' : 'מחכות'} לך`;
     return p.streak > 0
-      ? { title: '☀️ יום חדש, רצף ממשיך', body: `${p.total} מטלות מחכות לך. בוא נגיע ל-${p.streak + 1} ימים ברצף!` }
-      : { title: '☀️ יום חדש, התחלה חדשה', body: `${p.total} מטלות מחכות לך. בוא נדליק רצף חדש 🔥` };
+      ? { title: '☀️ יום חדש, רצף ממשיך', body: `${waiting}. בוא נגיע ל-${p.streak + 1} ימים ברצף!` }
+      : { title: '☀️ יום חדש, התחלה חדשה', body: `${waiting}. בוא נדליק רצף חדש 🔥` };
   }
-  return { title: '💪 כמעט שם!', body: `השלמת ${p.done} מתוך ${p.total}. נשארו ${leftText} ליום מושלם` };
+  return { title: '💪 כמעט שם!', body: `השלמת ${p.done} מתוך ${p.total}. ${one ? 'נשארה' : 'נשארו'} ${leftText} ליום מושלם` };
+}
+
+// Weekdays 0–6 (Sunday first), or null for every day.
+function cleanDays(days) {
+  if (!Array.isArray(days)) return null;
+  const clean = [...new Set(days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
+  return clean.length && clean.length < 7 ? clean : null;
 }
 
 function isValidTz(tz) {
@@ -143,7 +170,7 @@ export function sanitizeRecord(body) {
       tasks: (Array.isArray(s.tasks) ? s.tasks : [])
         .filter((t) => t && typeof t.title === 'string' && t.title.trim())
         .slice(0, 30)
-        .map((t) => ({ title: t.title.trim().slice(0, 60), done: t.done === true })),
+        .map((t) => ({ title: t.title.trim().slice(0, 60), done: t.done === true, days: cleanDays(t.days) })),
     },
     style: body.style === 'dark' ? 'dark' : 'normal',
   };

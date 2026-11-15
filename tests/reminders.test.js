@@ -85,11 +85,11 @@ function allDark(st, time, extra = {}) {
 }
 
 test('dark messages fill every placeholder', () => {
-  const st = status({ done: 1, tasks: [{ title: 'ריצה', done: false }, { title: 'מים', done: true }] });
+  const st = status({ done: 1, tasks: [{ title: 'ריצה', done: false }, { title: 'מים', done: true }, { title: 'קריאה', done: false }] });
   for (const time of ['08:00', '14:00', '21:00']) {
     for (const m of allDark(st, time)) {
       assert.doesNotMatch(m.title + m.body, /[{}]/);
-      assert.match(m.title + m.body, /2 מטלות|ריצה|4/);
+      assert.match(m.title + m.body, /2 מטלות|ריצה|קריאה|4/);
     }
   }
 });
@@ -133,6 +133,37 @@ test('no dark message when the day is done', () => {
 test('sanitizeRecord keeps style and trims task titles', () => {
   const r = sanitizeRecord({ ...valid, style: 'dark', status: { ...valid.status, tasks: [{ title: ` ${'x'.repeat(80)} `, done: 1 }, { title: '' }, 'bad'] } });
   assert.equal(r.style, 'dark');
-  assert.deepEqual(r.status.tasks, [{ title: 'x'.repeat(60), done: false }]);
+  assert.deepEqual(r.status.tasks, [{ title: 'x'.repeat(60), done: false, days: null }]);
   assert.equal(sanitizeRecord({ ...valid, style: 'evil' }).style, 'normal');
+});
+
+// ---------- tasks on specific weekdays (2026-11-15 is a Sunday) ----------
+const weekly = (o = {}) => ({
+  date: '2026-11-15', streak: 2, lastDone: '2026-11-13', done: 0, total: 0,
+  tasks: [{ title: 'NBME', done: false, days: [1] }, { title: 'Anki', done: false, days: null }],
+  ...o,
+});
+
+test('only tasks scheduled on that weekday count', () => {
+  const m = buildMessage(weekly(), '2026-11-15', '18:00'); // Sunday: only Anki
+  assert.match(m.body, /מטלה אחת/);
+  const monday = buildMessage(weekly(), '2026-11-16', '09:00'); // Monday: Anki + NBME
+  assert.match(monday.body, /2 מטלות/);
+});
+
+test('no reminder on a day with nothing scheduled', () => {
+  const st = weekly({ tasks: [{ title: 'NBME', done: false, days: [1] }] });
+  assert.equal(buildMessage(st, '2026-11-15', '20:00'), null);
+});
+
+test('a streak survives rest days in reminder texts', () => {
+  const st = weekly({ tasks: [{ title: 'UWorld', done: false, days: [0, 1, 2, 3, 4] }], lastDone: '2026-11-12', streak: 5 });
+  const m = buildMessage(st, '2026-11-15', '20:00');
+  assert.match(m.body, /5 ימים/);
+});
+
+test('sanitizeRecord cleans weekday lists', () => {
+  const tasks = [{ title: 'a', days: [3, 1, 1, 9, 'x'] }, { title: 'b', days: [0, 1, 2, 3, 4, 5, 6] }, { title: 'c' }];
+  const r = sanitizeRecord({ ...valid, status: { ...valid.status, tasks } });
+  assert.deepEqual(r.status.tasks.map((t) => t.days), [[1, 3], null, null]);
 });

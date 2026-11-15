@@ -50,3 +50,38 @@ test('weekDays starts on Sunday and marks done days', () => {
   assert.equal(days[2].isToday, true);
   assert.equal(days[6].future, true);
 });
+
+// ---------- weekdays and rest days (2026-11-15 is a Sunday) ----------
+import { weekday, scheduledOn, restDayChecker } from '../src/streak.js';
+
+const SUN_TO_THU = [0, 1, 2, 3, 4];
+const isRest = restDayChecker([{ days: SUN_TO_THU }]);
+
+test('weekday and scheduledOn follow the calendar', () => {
+  assert.equal(weekday('2026-11-15'), 0);
+  assert.equal(weekday('2026-11-14'), 6);
+  assert.equal(scheduledOn(null, '2026-11-14'), true);
+  assert.equal(scheduledOn(SUN_TO_THU, '2026-11-14'), false);
+  assert.equal(scheduledOn(SUN_TO_THU, '2026-11-15'), true);
+});
+
+test('a weekend with nothing scheduled does not break the streak', () => {
+  const s = { ...base, streak: 3, best: 3, lastDone: '2026-11-12' }; // Thursday
+  assert.equal(activeStreak(s, '2026-11-15', isRest), 3);
+  assert.equal(completeDay(s, '2026-11-15', isRest).streak, 4);
+});
+
+test('missing a scheduled day still breaks the streak', () => {
+  const s = { ...base, streak: 3, best: 3, lastDone: '2026-11-11' }; // Wednesday; Thursday was missed
+  assert.equal(activeStreak(s, '2026-11-15', isRest), 0);
+  assert.equal(completeDay(s, '2026-11-15', isRest).streak, 1);
+});
+
+test('with no tasks at all, days are not rest days', () => {
+  assert.equal(restDayChecker([])('2026-11-14'), false);
+});
+
+test('weekDays marks rest days', () => {
+  const days = weekDays([], '2026-11-15', isRest);
+  assert.deepEqual(days.map((d) => d.rest), [false, false, false, false, false, true, true]);
+});

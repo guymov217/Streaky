@@ -62,7 +62,19 @@
         <button class="text-btn" id="editBtn">עריכה</button>
       </section>
 
+      <p class="edit-hint" id="editHint" hidden>לחיצה על מטלה פותחת עריכה: שם, אייקון וימים</p>
+
       <ul class="tasks" id="tasks"></ul>
+
+      <div class="empty" id="restDay" hidden>
+        <div class="empty-emoji">🌴</div>
+        <p>אין מטלות להיום, יום מנוחה!<br>הרצף שלך לא יישבר.</p>
+      </div>
+
+      <section class="later" id="later" hidden>
+        <button type="button" class="later-toggle" id="laterToggle"></button>
+        <ul class="tasks later-list" id="laterTasks" hidden></ul>
+      </section>
 
       <div class="empty" id="empty" hidden>
         <div class="empty-emoji">📝</div>
@@ -79,13 +91,19 @@
   <div class="sheet-backdrop" id="sheetBackdrop" hidden>
     <form class="sheet" id="addForm" autocomplete="off">
       <div class="sheet-handle"></div>
-      <h3>מטלה חדשה</h3>
+      <h3 id="sheetTitle">מטלה חדשה</h3>
       <input id="taskInput" class="input" maxlength="60" placeholder="למשל: 40 שאלות UWorld" required>
       <p class="label">בחר אייקון</p>
       <div class="icon-grid" id="iconGrid"></div>
+      <p class="label">חוזרת</p>
+      <div class="repeat-opts" id="repeatOpts">
+        <button type="button" class="repeat-opt" data-repeat="daily">כל יום</button>
+        <button type="button" class="repeat-opt" data-repeat="days">בימים מסוימים</button>
+      </div>
+      <div class="day-picker" id="dayPicker" hidden></div>
       <div class="sheet-actions">
         <button type="button" class="btn btn-white" id="cancelAdd">ביטול</button>
-        <button type="submit" class="btn btn-green">הוסף</button>
+        <button type="submit" class="btn btn-green" id="sheetSubmit">הוסף</button>
       </div>
     </form>
   </div>

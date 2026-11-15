@@ -1,4 +1,4 @@
-import { dateKey, activeStreak, completeDay, weekDays } from './streak.js';
+import { dateKey, activeStreak, completeDay, weekDays, weekday, scheduledOn, restDayChecker } from './streak.js';
 import { pushAvailability, enablePush, disablePush, scheduleSync } from './notifications.js';
 import { initInstall } from './install.js';
 import { mascotSVG } from './mascot.js';
@@ -36,6 +36,9 @@ function loadState() {
 let state = loadState();
 let editing = false;
 let selectedIcon = DEFAULT_ICON;
+let selectedDays = null; // null = every day, otherwise weekdays 0–6 (Sunday first)
+let editingId = null; // task being edited in the sheet, null when adding
+let laterOpen = false; // "other days" section expanded
 let iconPicked = false; // once the user taps an icon, stop auto-suggesting from the title
 
 function save() {
@@ -58,15 +61,28 @@ const reminderAvailability = () => (isNative() ? 'available' : pushAvailability(
 
 // Today's progress as reported to the reminder server.
 function progressStatus() {
-  const ids = state.done.date === dateKey() ? state.done.ids : [];
+  const today = dateKey();
+  const ids = state.done.date === today ? state.done.ids : [];
+  const todays = tasksOn(today);
   return {
-    date: dateKey(),
-    done: state.tasks.filter((t) => ids.includes(t.id)).length,
-    total: state.tasks.length,
+    date: today,
+    done: todays.filter((t) => ids.includes(t.id)).length,
+    total: todays.length,
     streak: state.streak,
     lastDone: state.lastDone,
-    tasks: state.tasks.map((t) => ({ title: t.title, done: ids.includes(t.id) })),
+    tasks: state.tasks.map((t) => ({ title: t.title, done: ids.includes(t.id), days: t.days ?? null })),
   };
+}
+
+// ---------- Schedule ----------
+const tasksOn = (key) => state.tasks.filter((t) => scheduledOn(t.days, key));
+const isRestDay = (key) => restDayChecker(state.tasks)(key);
+const repeatsDaily = (task) => !Array.isArray(task.days) || task.days.length === 0;
+
+function daysLabel(days) {
+  const sorted = [...days].sort();
+  if (sorted.join() === '0,1,2,3,4') return 'א׳–ה׳';
+  return sorted.map((d) => DAY_NAMES[d]).join(' ');
 }
 
 // Start each new day with every task unchecked.
@@ -137,15 +153,16 @@ function buzz(pattern) {
 // ---------- Messages ----------
 function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 
-function messageFor(doneCount, total, streak, perfectToday, angry) {
+function messageFor(doneCount, total, streak, perfectToday, angry, rest) {
+  if (rest) return pick(['היום אין מטלות 🌴 יום מנוחה, והרצף שלך בטוח!', 'יום חופש! 😎 נטען כוחות למחר']);
   if (total === 0) return 'הב הב! אני ד״ר בליני 🩺 הוסף מטלות ונתחיל לבנות רצף!';
   if (perfectToday) return pick(['יום מושלם! אתה אלוף 🏆', 'כל המטלות הושלמו! נתראה מחר 😎', `רצף של ${streak}! אל תעצור עכשיו 🔥`]);
   const left = total - doneCount;
   if (angry) {
     const leftText = left === 1 ? 'מטלה אחת' : `${left} מטלות`;
     return pick([
-      `רררר... 😤 היום כמעט נגמר ועוד ${leftText} לא בוצעו!`,
-      streak > 0 ? `הב! 💢 הרצף של ${streak} ימים בסכנה! קדימה!` : `נו?! 😠 נשארו ${leftText}, אני מחכה!`,
+      `רררר... 😤 היום כמעט נגמר ועוד ${leftText} ${left === 1 ? 'לא בוצעה' : 'לא בוצעו'}!`,
+      streak > 0 ? `הב! 💢 הרצף של ${streak} ימים בסכנה! קדימה!` : `נו?! 😠 ${left === 1 ? 'נשארה' : 'נשארו'} ${leftText}, אני מחכה!`,
       `אני לא הולך לישון עד שתסיים! 😤 עוד ${leftText}`,
     ]);
   }
@@ -160,10 +177,14 @@ function messageFor(doneCount, total, streak, perfectToday, angry) {
 // ---------- Rendering ----------
 function render({ popBubble = false } = {}) {
   const today = rollDay();
-  const total = state.tasks.length;
+  const todays = tasksOn(today);
+  const later = state.tasks.filter((t) => !scheduledOn(t.days, today));
+  const total = todays.length;
+  const hasTasks = state.tasks.length > 0;
+  const rest = hasTasks && total === 0;
   const doneIds = state.done.ids;
-  const doneCount = state.tasks.filter((t) => doneIds.includes(t.id)).length;
-  const streak = activeStreak(state, today);
+  const doneCount = todays.filter((t) => doneIds.includes(t.id)).length;
+  const streak = activeStreak(state, today, isRestDay);
   const perfectToday = state.lastDone === today;
 
   // Top bar
@@ -173,7 +194,7 @@ function render({ popBubble = false } = {}) {
   $('bestCount').textContent = state.best;
   $('soundBtn').textContent = state.sound ? '🔊' : '🔇';
   $('bellBtn').classList.toggle('off', !state.notify.enabled);
-  $('nudge').hidden = total === 0 || state.notify.enabled || state.notify.nudgeDismissed
+  $('nudge').hidden = !hasTasks || state.notify.enabled || state.notify.nudgeDismissed
     || ['unsupported', 'denied'].includes(reminderAvailability());
 
   // Mascot + bubble
@@ -189,56 +210,80 @@ function render({ popBubble = false } = {}) {
   mascot.classList.toggle('angry', angry);
   const bubble = $('bubble');
   bubble.classList.toggle('angry', angry);
-  const key = `${doneCount}/${total}/${perfectToday}/${angry}`;
+  const key = `${doneCount}/${total}/${perfectToday}/${angry}/${rest}`;
   if (bubble.dataset.key !== key) {
-    bubble.textContent = messageFor(doneCount, total, streak, perfectToday, angry);
+    bubble.textContent = messageFor(doneCount, total, streak, perfectToday, angry, rest);
     bubble.dataset.key = key;
     if (popBubble) { bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop'); }
   }
 
   // Progress
   const pct = total ? (doneCount / total) * 100 : 0;
-  $('progressCount').textContent = `${doneCount}/${total}`;
+  $('progressCount').textContent = rest ? 'יום מנוחה 🌴' : `${doneCount}/${total}`;
   $('progressFill').style.width = `${Math.max(pct, total && doneCount ? 6 : 0)}%`;
   $('progressFill').classList.toggle('full', total > 0 && doneCount === total);
 
   // Week strip
-  $('week').innerHTML = weekDays(state.history, today).map((d, i) => `
-    <div class="day ${d.done ? 'done' : ''} ${d.isToday ? 'today' : ''} ${d.future ? 'future' : ''}">
+  $('week').innerHTML = weekDays(state.history, today, isRestDay).map((d, i) => `
+    <div class="day ${d.done ? 'done' : ''} ${d.isToday ? 'today' : ''} ${d.future ? 'future' : ''} ${d.rest && !d.done ? 'rest' : ''}">
       <span class="day-name">${DAY_NAMES[i]}</span>
-      <span class="day-dot">${d.done ? '🔥' : ''}</span>
+      <span class="day-dot">${d.done ? '🔥' : d.rest ? '💤' : ''}</span>
     </div>`).join('');
 
   // Tasks
-  $('empty').hidden = total > 0;
-  $('editBtn').hidden = total === 0;
+  $('empty').hidden = hasTasks;
+  $('restDay').hidden = !rest;
+  $('editBtn').hidden = !hasTasks;
   $('editBtn').textContent = editing ? 'סיום' : 'עריכה';
+  $('editHint').hidden = !editing;
   $('tasks').classList.toggle('editing', editing);
+  $('laterTasks').classList.toggle('editing', editing);
   const list = $('tasks');
   list.innerHTML = '';
-  for (const task of state.tasks) {
-    const li = document.createElement('li');
-    li.className = `task ${doneIds.includes(task.id) ? 'done' : ''}`;
-    li.dataset.id = task.id;
-    li.innerHTML = `
-      <span class="task-emoji"></span>
-      <span class="task-title"></span>
-      <span class="check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      <button class="delete-btn" aria-label="מחק מטלה">✕</button>`;
-    const iconEl = li.querySelector('.task-emoji');
-    const icon = iconHTML(task.icon);
-    if (icon) {
-      iconEl.innerHTML = icon;
-      iconEl.classList.add('has-icon');
-    } else {
-      iconEl.textContent = task.emoji ?? '✅'; // tasks saved before the icon set existed
-    }
-    li.querySelector('.task-title').textContent = task.title;
+  for (const task of todays) {
+    const done = doneIds.includes(task.id);
+    const li = taskRow(task);
+    li.classList.toggle('done', done);
     li.setAttribute('role', 'checkbox');
-    li.setAttribute('aria-checked', doneIds.includes(task.id));
+    li.setAttribute('aria-checked', done);
     list.appendChild(li);
   }
-  if (total === 0 && editing) editing = false;
+
+  // Tasks for other days: shown collapsed, tap to edit
+  $('later').hidden = later.length === 0;
+  $('laterToggle').textContent = `${laterOpen ? '▾' : '◂'} מטלות לימים אחרים (${later.length})`;
+  $('laterTasks').hidden = !laterOpen;
+  $('laterTasks').innerHTML = '';
+  for (const task of later) {
+    const li = taskRow(task);
+    li.classList.add('later');
+    $('laterTasks').appendChild(li);
+  }
+  if (!hasTasks && editing) editing = false;
+}
+
+function taskRow(task) {
+  const li = document.createElement('li');
+  li.className = 'task';
+  li.dataset.id = task.id;
+  li.innerHTML = `
+    <span class="task-emoji"></span>
+    <span class="task-text"><span class="task-title"></span><span class="task-days"></span></span>
+    <span class="check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <button class="delete-btn" aria-label="מחק מטלה">✕</button>`;
+  const iconEl = li.querySelector('.task-emoji');
+  const icon = iconHTML(task.icon);
+  if (icon) {
+    iconEl.innerHTML = icon;
+    iconEl.classList.add('has-icon');
+  } else {
+    iconEl.textContent = task.emoji ?? '✅'; // tasks saved before the icon set existed
+  }
+  li.querySelector('.task-title').textContent = task.title;
+  const daysEl = li.querySelector('.task-days');
+  if (repeatsDaily(task)) daysEl.remove();
+  else daysEl.textContent = `🔁 ${daysLabel(task.days)}`;
+  return li;
 }
 
 function bump(el) {
@@ -288,10 +333,11 @@ function toggleTask(id, li) {
   const rect = li.querySelector('.check').getBoundingClientRect();
   floatXP(rect.left + rect.width / 2, rect.top, `+${XP_PER_TASK} XP`);
 
-  const allDone = state.tasks.every((t) => state.done.ids.includes(t.id));
+  const todays = tasksOn(today);
+  const allDone = todays.length > 0 && todays.every((t) => state.done.ids.includes(t.id));
   const firstPerfect = allDone && state.lastDone !== today;
   if (firstPerfect) {
-    state = completeDay(state, today);
+    state = completeDay(state, today, isRestDay);
     state.xp += PERFECT_DAY_BONUS;
   }
   save();
@@ -306,14 +352,26 @@ function toggleTask(id, li) {
   if (firstPerfect) setTimeout(showCelebration, 550);
 }
 
-function addTask(title, icon) {
+function addTask(title, icon, days) {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  state.tasks.push({ id, title, icon });
+  const task = { id, title, icon, days };
+  state.tasks.push(task);
   save();
   play('add');
   buzz(15);
   render({ popBubble: true });
-  if (state.lastDone === dateKey()) toast('הרצף של היום כבר נשמר ✔️ המטלה החדשה תיספר מחר');
+  const today = dateKey();
+  if (!scheduledOn(days, today)) toast(`🔁 המטלה נוספה לימים ${daysLabel(days)}`);
+  else if (state.lastDone === today) toast('הרצף של היום כבר נשמר ✔️ המטלה החדשה תיספר מחר');
+}
+
+function updateTask(id, changes) {
+  const task = state.tasks.find((t) => t.id === id);
+  if (!task) return;
+  Object.assign(task, changes);
+  save();
+  render({ popBubble: true });
+  toast(repeatsDaily(task) ? '✔️ נשמר · חוזרת כל יום' : `✔️ נשמר · חוזרת בימים ${daysLabel(task.days)}`);
 }
 
 function deleteTask(id, li) {
@@ -329,8 +387,8 @@ function deleteTask(id, li) {
 // ---------- Celebration ----------
 function showCelebration() {
   const today = dateKey();
-  const streak = activeStreak(state, today);
-  const dayXp = state.tasks.length * XP_PER_TASK + PERFECT_DAY_BONUS;
+  const streak = activeStreak(state, today, isRestDay);
+  const dayXp = tasksOn(today).length * XP_PER_TASK + PERFECT_DAY_BONUS;
 
   $('bigFlame').innerHTML = mascotSVG('excited');
   $('celebrateTitle').textContent = streak === state.best && streak > 1 ? 'שיא חדש! 🏆' : 'יום מושלם! 🎉';
@@ -413,13 +471,33 @@ function stopConfetti() {
 }
 
 // ---------- Add sheet ----------
-function openSheet() {
-  $('sheetBackdrop').hidden = false;
-  $('taskInput').value = '';
-  selectedIcon = DEFAULT_ICON;
-  iconPicked = false;
+// Add a task, or edit `task` when given.
+function openSheet(task = null) {
+  editingId = task?.id ?? null;
+  $('sheetTitle').textContent = task ? 'עריכת מטלה' : 'מטלה חדשה';
+  $('sheetSubmit').textContent = task ? 'שמור' : 'הוסף';
+  $('taskInput').value = task?.title ?? '';
+  selectedIcon = task && iconHTML(task.icon) ? task.icon : DEFAULT_ICON;
+  iconPicked = Boolean(task);
+  selectedDays = task && !repeatsDaily(task) ? [...task.days] : null;
   renderIconGrid();
-  setTimeout(() => $('taskInput').focus(), 250);
+  renderRepeat();
+  $('sheetBackdrop').hidden = false;
+  if (!task) setTimeout(() => $('taskInput').focus(), 250);
+}
+
+function renderRepeat() {
+  const daily = selectedDays === null;
+  for (const btn of document.querySelectorAll('.repeat-opt')) {
+    const on = (btn.dataset.repeat === 'daily') === daily;
+    btn.classList.toggle('selected', on);
+    btn.setAttribute('aria-pressed', on);
+  }
+  $('dayPicker').hidden = daily;
+  $('dayPicker').innerHTML = DAY_NAMES.map((name, i) => {
+    const on = Boolean(selectedDays?.includes(i));
+    return `<button type="button" class="day-chip ${on ? 'selected' : ''}" data-day="${i}" aria-pressed="${on}">${name}</button>`;
+  }).join('');
 }
 function closeSheet() { $('sheetBackdrop').hidden = true; }
 
@@ -522,13 +600,36 @@ $('tasks').addEventListener('click', (e) => {
   if (!li) return;
   if (editing) {
     if (e.target.closest('.delete-btn')) deleteTask(li.dataset.id, li);
+    else openSheet(state.tasks.find((t) => t.id === li.dataset.id));
     return;
   }
   toggleTask(li.dataset.id, li);
 });
+$('laterTasks').addEventListener('click', (e) => {
+  const li = e.target.closest('.task');
+  if (!li) return;
+  if (editing && e.target.closest('.delete-btn')) deleteTask(li.dataset.id, li);
+  else openSheet(state.tasks.find((t) => t.id === li.dataset.id));
+});
+$('laterToggle').addEventListener('click', () => { laterOpen = !laterOpen; render(); });
+$('repeatOpts').addEventListener('click', (e) => {
+  const btn = e.target.closest('.repeat-opt');
+  if (!btn) return;
+  selectedDays = btn.dataset.repeat === 'daily' ? null : (selectedDays ?? [weekday(dateKey())]);
+  renderRepeat();
+});
+$('dayPicker').addEventListener('click', (e) => {
+  const btn = e.target.closest('.day-chip');
+  if (!btn) return;
+  const day = Number(btn.dataset.day);
+  const next = selectedDays.includes(day) ? selectedDays.filter((d) => d !== day) : [...selectedDays, day].sort();
+  if (next.length === 0) { toast('צריך לבחור לפחות יום אחד'); return; }
+  selectedDays = next.length === 7 ? null : next; // all seven days = every day
+  renderRepeat();
+});
 
 $('editBtn').addEventListener('click', () => { editing = !editing; render(); });
-$('addBtn').addEventListener('click', openSheet);
+$('addBtn').addEventListener('click', () => openSheet());
 $('cancelAdd').addEventListener('click', closeSheet);
 $('sheetBackdrop').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeSheet(); });
 $('iconGrid').addEventListener('click', (e) => {
@@ -551,7 +652,8 @@ $('addForm').addEventListener('submit', (e) => {
   const title = $('taskInput').value.trim();
   if (!title) return;
   closeSheet();
-  addTask(title, selectedIcon);
+  if (editingId) updateTask(editingId, { title, icon: selectedIcon, days: selectedDays });
+  else addTask(title, selectedIcon, selectedDays);
 });
 $('continueBtn').addEventListener('click', hideCelebration);
 $('bellBtn').addEventListener('click', openRemind);
@@ -593,7 +695,7 @@ $('soundBtn').addEventListener('click', () => {
   play('add'); // audible confirmation that sound is on
 });
 $('streakStat').addEventListener('click', () => {
-  const streak = activeStreak(state, dateKey());
+  const streak = activeStreak(state, dateKey(), isRestDay);
   toast(streak ? `🔥 רצף של ${streak} ימים · השיא שלך: ${state.best}` : 'השלם את כל המטלות היום כדי להדליק רצף 🔥');
 });
 

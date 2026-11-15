@@ -43,3 +43,10 @@ test('tomorrow can still mention a live streak, later days cannot', () => {
   assert.match(tomorrowEvening.body, /3 ימים/);
   assert.doesNotMatch(laterEvening.body, /ימים/);
 });
+
+test('reminders are only planned on days that have tasks', () => {
+  const st = status({ done: 0, total: 1, tasks: [{ title: 'NBME', done: false, days: [1] }] }); // Mondays only
+  const p = plan(st);
+  assert.ok(p.length > 0);
+  assert.ok(p.every((n) => n.at.getDay() === 1));
+});
