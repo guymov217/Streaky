@@ -80,18 +80,39 @@ function rollDay() {
 }
 
 // ---------- Sound & haptics ----------
+// Phones keep web audio suspended until a touch, and suspend it again whenever the app goes to the
+// background (iOS reports "interrupted"), so the audio context is resumed on every touch.
 let audioCtx;
-function tone(freq, start, dur, type = 'sine', vol = 0.18) {
+function audio() {
   audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
-  const t = audioCtx.currentTime + start;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
+  if (audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
+  return audioCtx;
+}
+function unlockAudio() {
+  if (!state.sound || audioCtx?.state === 'running') return;
+  try {
+    const ctx = audio();
+    // Playing one silent sample inside the touch fully unlocks output on iOS.
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, 1, 22050);
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch { /* audio unsupported */ }
+}
+document.addEventListener('pointerdown', unlockAudio, { passive: true });
+document.addEventListener('touchend', unlockAudio, { passive: true });
+
+function tone(freq, start, dur, type = 'sine', vol = 0.18) {
+  const ctx = audio();
+  const t = ctx.currentTime + start;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, t);
   gain.gain.setValueAtTime(0.0001, t);
   gain.gain.exponentialRampToValueAtTime(vol, t + 0.02);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  osc.connect(gain).connect(audioCtx.destination);
+  osc.connect(gain).connect(ctx.destination);
   osc.start(t);
   osc.stop(t + dur + 0.05);
 }
@@ -565,7 +586,12 @@ $('times').addEventListener('click', (e) => {
   save();
   renderRemind();
 });
-$('soundBtn').addEventListener('click', () => { state.sound = !state.sound; save(); render(); });
+$('soundBtn').addEventListener('click', () => {
+  state.sound = !state.sound;
+  save();
+  render();
+  play('add'); // audible confirmation that sound is on
+});
 $('streakStat').addEventListener('click', () => {
   const streak = activeStreak(state, dateKey());
   toast(streak ? `🔥 רצף של ${streak} ימים · השיא שלך: ${state.best}` : 'השלם את כל המטלות היום כדי להדליק רצף 🔥');
