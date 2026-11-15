@@ -6,8 +6,12 @@ const DISMISS_KEY = 'streaky-install-dismissed';
 const DISMISS_DAYS = 3;
 const $ = (id) => document.getElementById(id);
 
+const REPO = 'guymov217/Streaky';
+const APK_URL = `https://github.com/${REPO}/releases/latest/download/streaky.apk`;
+
 let deferredPrompt = null;
 let installed = false;
+let apkReady = false; // a signed APK has been published
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
 
@@ -79,6 +83,18 @@ function renderBody() {
       ${step(2, `בחר <span class="chip chip-row">${addIcon} הוסף למסך הבית</span> ואז <b>"הוסף"</b> 🎉<small>אם לא רואים, גלול קצת למטה ברשימה</small>`)}
     </ol>${copyBlock('Safari')}`;
     $('installArrow').hidden = /ipad/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1 && !/iphone/i.test(navigator.userAgent);
+    return;
+  }
+
+  if (p === 'android' && apkReady) {
+    body.innerHTML = `
+      <a class="btn btn-green btn-big" href="${APK_URL}" download>📥 הורד את האפליקציה</a>
+      <ol class="steps">
+        ${step(1, `פתח את הקובץ <b>streaky.apk</b> שירד<small>מההתראה בראש המסך או מתיקיית "הורדות"</small>`)}
+        ${step(2, `אם מופיעה הודעה על התקנה ממקור לא ידוע, לחץ <b>"הגדרות"</b>, אפשר, וחזור<small>זה חד-פעמי. אם Play Protect מזהיר, לחץ "פרטים נוספים" ← "התקן בכל זאת"</small>`)}
+        ${step(3, `לחץ <b>"התקן"</b> ופתח את Streaky 🎉<small>עובדת בלי אינטרנט, והתזכורות מגיעות מהטלפון עצמו</small>`)}
+      </ol>
+      ${deferredPrompt ? '<button type="button" class="text-btn install-now">או התקנה מהירה דרך הדפדפן</button>' : ''}`;
     return;
   }
 
@@ -170,5 +186,17 @@ export function initInstall() {
     if (!$('install').hidden) renderBody();
   });
 
+  if (isAndroid()) checkApk();
   if (!recentlyDismissed()) openInstall();
+}
+
+// Offer the Android app download only once a release with the APK exists.
+async function checkApk() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!res.ok) return;
+    const release = await res.json();
+    apkReady = Array.isArray(release.assets) && release.assets.some((a) => a.name === 'streaky.apk');
+    if (apkReady && !$('install').hidden) renderBody();
+  } catch { /* offline or rate-limited: keep the browser install */ }
 }

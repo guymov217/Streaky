@@ -1,4 +1,4 @@
-const CACHE = 'streaky-v8';
+const CACHE = 'streaky-v9';
 const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'streak.js', 'notifications.js', 'reminders.js', 'local-reminders.js', 'native.js',
   'fonts/rubik-hebrew-500-normal.woff2', 'fonts/rubik-hebrew-700-normal.woff2', 'fonts/rubik-hebrew-800-normal.woff2', 'fonts/rubik-hebrew-900-normal.woff2',
   'fonts/rubik-latin-500-normal.woff2', 'fonts/rubik-latin-700-normal.woff2', 'fonts/rubik-latin-800-normal.woff2', 'fonts/rubik-latin-900-normal.woff2', 'install.js', 'mascot.js', 'vendor/qrcode.js', 'apple-touch-icon.png', 'icon-maskable-512.png', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
